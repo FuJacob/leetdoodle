@@ -6,7 +6,7 @@
 
 **Architecture:** A fixed `viewport` div captures all pointer events. A `world` div inside it moves and scales via a single CSS `translate(x,y) scale(z)` transform with `transform-origin: 0 0`. Nodes live in world space; coordinate conversion utilities translate between screen and world space. All interaction state is stored in refs so event handlers are stable across re-renders.
 
-**Tech Stack:** React 19, TypeScript, Vite, CSS Modules, Pointer Events API
+**Tech Stack:** React 19, TypeScript, Vite, Tailwind CSS v4, Pointer Events API
 
 ---
 
@@ -23,18 +23,90 @@ frontend/src/
       useCanvasTransform.ts   ← pan/zoom state + pointer/wheel handlers (non-passive wheel via useEffect)
       useNodeDrag.ts          ← per-node drag logic (stable callbacks via transformRef)
     Canvas.tsx                ← viewport + world div, combines pan + drag handlers at viewport level
-    Canvas.module.css         ← viewport/world styles
   nodes/
     NodeRenderer.tsx          ← renders a single node (only onPointerDown, no move/up)
-    NodeRenderer.module.css   ← node base styles
   App.tsx                     ← mounts Canvas
-  App.css                     ← empty (canvas fills viewport)
-  index.css                   ← global reset
+  App.css                     ← deleted / emptied
+  index.css                   ← Tailwind v4 import + html/body/root fill-screen
+```
+
+No CSS Module files — all styles are Tailwind utility classes directly on elements.
+
+---
+
+## Task 1: Install & Configure Tailwind v4
+
+Tailwind v4 is Vite-native — no `tailwind.config.js` needed. One plugin, one CSS import.
+
+**Files:**
+- Modify: `frontend/vite.config.ts`
+- Modify: `frontend/src/index.css`
+- Modify: `frontend/src/App.css`
+
+- [ ] **Step 1: Install Tailwind v4**
+
+```bash
+cd frontend && pnpm add tailwindcss @tailwindcss/vite
+```
+
+- [ ] **Step 2: Add Tailwind plugin to vite.config.ts**
+
+Read the existing `vite.config.ts` first, then add the import and plugin. The result should look like:
+
+```ts
+// frontend/vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    tailwindcss(),
+  ],
+});
+```
+
+- [ ] **Step 3: Replace index.css with Tailwind import + viewport reset**
+
+```css
+/* frontend/src/index.css */
+@import "tailwindcss";
+
+/* Tailwind's preflight handles box-sizing and margin resets. */
+/* These rules ensure the canvas fills the full screen. */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+```
+
+- [ ] **Step 4: Clear App.css**
+
+```css
+/* frontend/src/App.css — unused, canvas fills viewport */
+```
+
+- [ ] **Step 5: Start dev server and verify Tailwind is working**
+
+```bash
+pnpm dev
+```
+
+Add a temporary `className="text-red-500"` to `App.tsx` and confirm the text is red. Remove it after confirming.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add frontend/vite.config.ts frontend/src/index.css frontend/src/App.css
+git commit -m "feat: install and configure Tailwind CSS v4"
 ```
 
 ---
 
-## Task 1: Project Structure + Types
+## Task 2: Project Structure + Types
 
 **Files:**
 - Create: `frontend/src/canvas/types.ts`
@@ -78,7 +150,7 @@ git commit -m "feat: add canvas types"
 
 ---
 
-## Task 2: Coordinate & Math Utilities
+## Task 3: Coordinate & Math Utilities
 
 **Files:**
 - Create: `frontend/src/canvas/utils/coordinates.ts`
@@ -167,7 +239,7 @@ git commit -m "feat: add coordinate and zoom math utilities"
 
 ---
 
-## Task 3: useCanvasTransform Hook
+## Task 4: useCanvasTransform Hook
 
 Manages pan/zoom state. The wheel handler is attached via `useEffect` with `{ passive: false }` so `e.preventDefault()` works — React 19 attaches `onWheel` as a passive listener, which silently ignores `preventDefault()`.
 
@@ -280,7 +352,7 @@ git commit -m "feat: add useCanvasTransform hook (pan + non-passive zoom)"
 
 ---
 
-## Task 4: useNodeDrag Hook
+## Task 5: useNodeDrag Hook
 
 Handles dragging individual nodes in world space. Uses a `transformRef` (passed in from `useCanvasTransform`) so `onPointerMove` has a stable identity — no re-renders of all nodes on every zoom tick.
 
@@ -375,52 +447,20 @@ git commit -m "feat: add useNodeDrag hook"
 
 ---
 
-## Task 5: NodeRenderer Component
+## Task 6: NodeRenderer Component
 
 Renders a single node. Only needs `onPointerDown` — move/up are handled at the viewport level so they fire even when the cursor leaves the node during fast drags.
 
+Styled entirely with Tailwind utility classes — no CSS file.
+
 **Files:**
 - Create: `frontend/src/nodes/NodeRenderer.tsx`
-- Create: `frontend/src/nodes/NodeRenderer.module.css`
 
-- [ ] **Step 1: Write the CSS**
-
-```css
-/* frontend/src/nodes/NodeRenderer.module.css */
-.node {
-  position: absolute;
-  background: #1e1e2e;
-  border: 1px solid #313244;
-  border-radius: 8px;
-  padding: 12px;
-  cursor: grab;
-  user-select: none;
-  color: #cdd6f4;
-  font-family: 'Geist Sans', system-ui, sans-serif;
-  font-size: 13px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-}
-
-.node:active {
-  cursor: grabbing;
-}
-
-.node__label {
-  font-weight: 500;
-  color: #89b4fa;
-  margin-bottom: 4px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-```
-
-- [ ] **Step 2: Write the component**
+- [ ] **Step 1: Write the component**
 
 ```tsx
 // frontend/src/nodes/NodeRenderer.tsx
 import type { CanvasNode } from '../canvas/types';
-import styles from './NodeRenderer.module.css';
 
 interface NodeRendererProps {
   node: CanvasNode;
@@ -430,7 +470,7 @@ interface NodeRendererProps {
 export function NodeRenderer({ node, onPointerDown }: NodeRendererProps) {
   return (
     <div
-      className={styles.node}
+      className="absolute cursor-grab select-none rounded-lg border border-zinc-700 bg-zinc-900 p-3 text-sm text-zinc-300 shadow-xl active:cursor-grabbing"
       style={{
         left: node.x,
         top: node.y,
@@ -439,57 +479,34 @@ export function NodeRenderer({ node, onPointerDown }: NodeRendererProps) {
       }}
       onPointerDown={e => onPointerDown(e, node)}
     >
-      <div className={styles.node__label}>{node.type}</div>
+      <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-blue-400">
+        {node.type}
+      </div>
       <div>{String(node.data.content ?? '')}</div>
     </div>
   );
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
-git add frontend/src/nodes/
+git add frontend/src/nodes/NodeRenderer.tsx
 git commit -m "feat: add NodeRenderer component"
 ```
 
 ---
 
-## Task 6: Canvas Component
+## Task 7: Canvas Component
 
 Wires everything together. Pan and node drag handlers are combined at the **viewport level** — this is the key architectural decision. It ensures move/up events always fire regardless of where the cursor is.
 
+The dot grid background uses Tailwind's arbitrary value syntax for the radial-gradient. The world div's `transform-origin: 0 0` is set via inline style (not available as a Tailwind class in v4 without a custom plugin).
+
 **Files:**
 - Create: `frontend/src/canvas/Canvas.tsx`
-- Create: `frontend/src/canvas/Canvas.module.css`
 
-- [ ] **Step 1: Write the CSS**
-
-```css
-/* frontend/src/canvas/Canvas.module.css */
-.viewport {
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  background: #11111b;
-  cursor: default;
-  /* Subtle dot grid */
-  background-image: radial-gradient(circle, #313244 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-
-.world {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: 0 0;
-  /* world is infinite; nodes use position: absolute relative to this div */
-  width: 0;
-  height: 0;
-}
-```
-
-- [ ] **Step 2: Write the Canvas component**
+- [ ] **Step 1: Write the Canvas component**
 
 ```tsx
 // frontend/src/canvas/Canvas.tsx
@@ -499,7 +516,6 @@ import { useCanvasTransform } from './hooks/useCanvasTransform';
 import { useNodeDrag } from './hooks/useNodeDrag';
 import { screenToWorld } from './utils/coordinates';
 import { NodeRenderer } from '../nodes/NodeRenderer';
-import styles from './Canvas.module.css';
 
 let nextId = 1;
 
@@ -573,20 +589,24 @@ export function Canvas() {
     [transformRef], // stable ref object — callback never needs recreation
   );
 
-  const worldStyle: React.CSSProperties = {
-    transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.zoom})`,
-  };
-
   return (
     <div
       ref={viewportRef}
-      className={styles.viewport}
+      className="fixed inset-0 overflow-hidden bg-zinc-950 [background-image:radial-gradient(circle,theme(colors.zinc.700)_1px,transparent_1px)] [background-size:32px_32px]"
       onPointerDown={panPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onDoubleClick={onDoubleClick}
     >
-      <div className={styles.world} style={worldStyle}>
+      <div
+        className="absolute top-0 left-0"
+        style={{
+          transformOrigin: '0 0',
+          transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.zoom})`,
+          width: 0,
+          height: 0,
+        }}
+      >
         {nodes.map(node => (
           <NodeRenderer
             key={node.id}
@@ -600,48 +620,21 @@ export function Canvas() {
 }
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
-git add frontend/src/canvas/
+git add frontend/src/canvas/Canvas.tsx
 git commit -m "feat: add Canvas component with pan, zoom, and node placement"
 ```
 
 ---
 
-## Task 7: Wire Into App
+## Task 8: Wire Into App
 
 **Files:**
 - Modify: `frontend/src/App.tsx`
-- Modify: `frontend/src/App.css`
-- Modify: `frontend/src/index.css`
 
-- [ ] **Step 1: Update index.css (global reset)**
-
-```css
-/* frontend/src/index.css */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html, body, #root {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-```
-
-- [ ] **Step 2: Clear App.css**
-
-Replace the entire file with an empty comment:
-
-```css
-/* frontend/src/App.css — canvas fills the viewport, no app-level styles needed */
-```
-
-- [ ] **Step 3: Update App.tsx**
+- [ ] **Step 1: Update App.tsx**
 
 ```tsx
 // frontend/src/App.tsx
@@ -652,16 +645,16 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
-git add frontend/src/App.tsx frontend/src/App.css frontend/src/index.css
+git add frontend/src/App.tsx
 git commit -m "feat: mount Canvas as root app"
 ```
 
 ---
 
-## Task 8: Smoke Test
+## Task 9: Smoke Test
 
 - [ ] **Step 1: Start dev server**
 
@@ -670,7 +663,7 @@ cd frontend && pnpm dev
 ```
 
 - [ ] **Step 2: Verify manually in the browser**
-  - Dark canvas background with dot grid renders
+  - Dark canvas background (`zinc-950`) with dot grid renders
   - Click and drag on empty space → canvas pans smoothly
   - Scroll wheel → zooms toward cursor position (world point under cursor stays fixed)
   - Double-click on empty space → a note node appears at that position
