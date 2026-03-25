@@ -1,10 +1,5 @@
-import { useState } from "react";
-import "./App.css";
+import { Canvas } from './canvas/Canvas';
 
-function App() {
-  const [count, setCount] = useState(0);
-
-  return <>gay</>;
+export default function App() {
+  return <Canvas />;
 }
-
-export default App;
