@@ -74,7 +74,8 @@ export function CodeNodeRenderer({ node, onPointerDown, onUpdate }: Props) {
       {/* Stop pointer events so typing/selecting doesn't trigger drag */}
       <div
         ref={containerRef}
-        className="text-sm"
+        className="text-sm overflow-auto"
+        style={{ height: node.height - 40 }} // subtract header height
         onPointerDown={(e) => e.stopPropagation()}
       />
     </div>

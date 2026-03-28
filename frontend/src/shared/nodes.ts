@@ -89,8 +89,8 @@ export function createNoteNode(x: number, y: number): NoteNode {
     type: 'note',
     x,
     y,
-    width: 220,
-    height: 120,
+    width: 280,
+    height: 180,
     data: { content: '' },
   };
 }
@@ -101,8 +101,8 @@ export function createProblemNode(x: number, y: number): ProblemNode {
     type: 'problem',
     x,
     y,
-    width: 320,
-    height: 120,
+    width: 400,
+    height: 350,
     data: { status: 'empty' },
   };
 }

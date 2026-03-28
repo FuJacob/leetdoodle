@@ -125,12 +125,6 @@ export function ProblemNodeRenderer({
   const { title, difficulty, content, tags, likes, dislikes, stats } =
     node.data;
   const parsedStats = parseStats(stats);
-  const description = content
-    .replace(/<[^>]*>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  const preview =
-    description.length > 200 ? description.slice(0, 200) + "…" : description;
 
   return (
     <div
@@ -160,9 +154,11 @@ export function ProblemNodeRenderer({
         </div>
       )}
 
-      <div className="text-xs text-zinc-400 mb-2 leading-relaxed">
-        {preview}
-      </div>
+      {/* Render HTML content directly — safe since it's from our own DB */}
+      <div
+        className="text-xs text-zinc-400 mb-2 leading-relaxed max-h-48 overflow-y-auto [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:text-zinc-300 [&_pre]:bg-zinc-800 [&_pre]:p-2 [&_pre]:overflow-x-auto [&_strong]:text-zinc-300 [&_a]:text-blue-400 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
 
       <div className="flex gap-3 text-[10px] text-zinc-500">
         <span>▲ {likes}</span>
