@@ -1,9 +1,0 @@
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/LeetcodeApplication.java
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/controller/ProblemController.java
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/model/Problem.java
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/model/Tag.java
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/repository/ProblemRepository.java
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/repository/TagRepository.java
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/seeder/DataSeeder.java
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/seeder/RawQuestion.java
-/Users/jacobfu/src/leet-canvas/services/leetcode/src/main/java/com/leetcanvas/leetcode/service/ProblemService.java

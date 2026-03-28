@@ -1,11 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
-import { type CanvasNode, type NodeType, createNoteNode, createProblemNode } from './nodes';
+import { type CanvasNode, type NodeType, createNoteNode, createProblemNode } from '../shared/nodes';
 import { useCanvasTransform } from './hooks/useCanvasTransform';
 import { useNodeDrag } from './hooks/useNodeDrag';
 import { useCollabCursors } from './hooks/useCollabCursors';
 import { screenToWorld } from './utils/coordinates';
-import { NodeRenderer } from '../nodes/NodeRenderer';
-import { CursorOverlay } from '../nodes/CursorOverlay';
+import { NodeRenderer } from './NodeRenderer';
+import { CursorOverlay } from './CursorOverlay';
 import { SpawnPanel } from './SpawnPanel';
 
 interface CanvasProps {
@@ -104,6 +104,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
             key={node.id}
             node={node}
             onPointerDown={onNodePointerDown}
+            onUpdate={updateNode}
           />
         ))}
       </div>

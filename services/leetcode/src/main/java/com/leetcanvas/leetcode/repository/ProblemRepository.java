@@ -33,10 +33,10 @@ public class ProblemRepository {
         return c != null ? c : 0;
     }
 
-    public Optional<Problem> findByFrontendId(int frontendId) {
+    public Optional<Problem> findBySlug(String slug) {
         List<Problem> results = jdbc.query(
-            "SELECT * FROM problems WHERE frontend_id = :fid",
-            Map.of("fid", frontendId),
+            "SELECT * FROM problems WHERE slug = :slug",
+            Map.of("slug", slug),
             (rs, rowNum) -> mapRow(rs)
         );
         if (results.isEmpty()) return Optional.empty();
@@ -91,12 +91,12 @@ public class ProblemRepository {
 
         Integer id = jdbc.queryForObject("""
             INSERT INTO problems (
-                question_id, frontend_id, title, content, difficulty,
+                question_id, frontend_id, slug, title, content, difficulty,
                 likes, dislikes, category, is_paid_only,
                 has_solution, has_video_solution, url, solution_content,
                 hints, similar_questions, stats, company_tags
             ) VALUES (
-                :questionId, :frontendId, :title, :content, :difficulty,
+                :questionId, :frontendId, :slug, :title, :content, :difficulty,
                 :likes, :dislikes, :category, :isPaidOnly,
                 :hasSolution, :hasVideoSolution, :url, :solutionContent,
                 CAST(:hints AS jsonb), :similarQuestions, :stats, :companyTags
@@ -105,6 +105,7 @@ public class ProblemRepository {
             new MapSqlParameterSource()
                 .addValue("questionId",       p.questionId())
                 .addValue("frontendId",       p.frontendId())
+                .addValue("slug",             p.slug())
                 .addValue("title",            p.title())
                 .addValue("content",          p.content())
                 .addValue("difficulty",       p.difficulty())
@@ -183,6 +184,7 @@ public class ProblemRepository {
             .id(rs.getInt("id"))
             .questionId(rs.getInt("question_id"))
             .frontendId(rs.getInt("frontend_id"))
+            .slug(rs.getString("slug"))
             .title(rs.getString("title"))
             .content(rs.getString("content"))
             .difficulty(rs.getString("difficulty"))
@@ -231,8 +233,10 @@ public class ProblemRepository {
             }
         );
 
+        // Cast to Problem: Java generics are invariant, so List<ImmutableProblem>
+        // is not a List<Problem> even though ImmutableProblem implements Problem.
         return problems.stream()
-            .map(p -> ImmutableProblem.copyOf(p)
+            .map(p -> (Problem) ImmutableProblem.copyOf(p)
                 .withTags(tagsByProblemId.getOrDefault(p.id(), List.of())))
             .toList();
     }

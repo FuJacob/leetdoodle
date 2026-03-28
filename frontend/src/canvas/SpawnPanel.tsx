@@ -1,4 +1,4 @@
-import type { NodeType } from './nodes';
+import type { NodeType } from '../shared/nodes';
 
 interface SpawnPanelProps {
   onSpawn: (type: NodeType) => void;

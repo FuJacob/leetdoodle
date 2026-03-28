@@ -18,16 +18,7 @@ public class ProblemController {
         this.problemService = problemService;
     }
 
-    /*
-     * GET /api/problems?page=0&size=20&difficulty=Easy&tag=Array
-     *
-     * Returns a JSON object with:
-     *   { "content": [...], "page": 0, "size": 20,
-     *     "totalElements": 3879, "totalPages": 194 }
-     *
-     * We build this map ourselves instead of relying on Spring Data's Page
-     * abstraction — no ORM magic, just a plain Map that Jackson serialises.
-     */
+    /** GET /api/problems?page=0&size=20&difficulty=Easy&tag=Array */
     @GetMapping
     public Map<String, Object> list(
         @RequestParam(required = false) String difficulty,
@@ -48,15 +39,15 @@ public class ProblemController {
         );
     }
 
-    /*
-     * GET /api/problems/1   — fetch "Two Sum"
-     * GET /api/problems/42  — fetch "Trapping Rain Water"
+    /**
+     * GET /api/problems/slug/two-sum
      *
-     * Uses the user-facing frontend_id (the problem number), not the
-     * internal question_id, because that's what users actually refer to.
+     * The slug is the path segment from a LeetCode URL:
+     *   https://leetcode.com/problems/two-sum/  →  slug = "two-sum"
+     * This is how the frontend looks up a problem after the user pastes a URL.
      */
-    @GetMapping("/{frontendId}")
-    public Problem get(@PathVariable int frontendId) {
-        return problemService.getByFrontendId(frontendId);
+    @GetMapping("/slug/{slug}")
+    public Problem getBySlug(@PathVariable String slug) {
+        return problemService.getBySlug(slug);
     }
 }

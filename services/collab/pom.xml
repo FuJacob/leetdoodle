@@ -37,6 +37,27 @@
 
   <build>
     <plugins>
+      <!--
+        Explicitly register Immutables as an annotation processor.
+        Newer Maven versions don't reliably pick up processors from the
+        provided-scope classpath — annotationProcessorPaths is the safe way.
+        The processor generates ImmutableFoo.java from @Value.Immutable interfaces
+        during the compile phase, before javac compiles the rest of the code.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.immutables</groupId>
+              <artifactId>value</artifactId>
+              <version>2.10.1</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

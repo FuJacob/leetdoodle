@@ -25,10 +25,10 @@ public class ProblemService {
         return problemRepository.countAll(difficulty, tag);
     }
 
-    public Problem getByFrontendId(int frontendId) {
-        return problemRepository.findByFrontendId(frontendId)
+    public Problem getBySlug(String slug) {
+        return problemRepository.findBySlug(slug)
             .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.NOT_FOUND, "Problem #" + frontendId + " not found"
+                HttpStatus.NOT_FOUND, "Problem \"" + slug + "\" not found"
             ));
     }
 }

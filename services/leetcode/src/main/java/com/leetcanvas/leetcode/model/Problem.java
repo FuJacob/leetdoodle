@@ -23,6 +23,7 @@ public interface Problem {
     boolean isPaidOnly();
     boolean hasSolution();
     boolean hasVideoSolution();
+    @Nullable String slug();
     @Nullable String url();
     @Nullable String solutionContent();
     @Nullable String similarQuestions();

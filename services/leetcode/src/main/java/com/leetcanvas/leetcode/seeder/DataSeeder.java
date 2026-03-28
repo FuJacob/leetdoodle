@@ -13,7 +13,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationContext;
-import org.springframework.core.io.Resource;
+import org.springframework.core.io.Resource; 
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -156,6 +156,16 @@ public class DataSeeder implements ApplicationRunner {
         }
     }
 
+    // ── helpers ───────────────────────────────────────────────────────────────
+
+    /** https://leetcode.com/problems/two-sum/  →  "two-sum" */
+    private static String extractSlug(String url) {
+        if (url == null) return null;
+        String trimmed = url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+        int last = trimmed.lastIndexOf('/');
+        return last >= 0 ? trimmed.substring(last + 1) : null;
+    }
+
     // ── mapping ──────────────────────────────────────────────────────────────
 
     private Problem mapToProblem(RawQuestion q) {
@@ -171,6 +181,7 @@ public class DataSeeder implements ApplicationRunner {
             .isPaidOnly(Boolean.TRUE.equals(q.isPaidOnly()))
             .hasSolution(Boolean.TRUE.equals(q.hasSolution()))
             .hasVideoSolution(Boolean.TRUE.equals(q.hasVideoSolution()))
+            .slug(extractSlug(q.url()))
             .url(q.url())
             .solutionContent(q.solution() != null ? q.solution().content() : null)
             .hints(q.hints() != null ? q.hints() : List.of())
