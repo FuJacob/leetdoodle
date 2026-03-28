@@ -31,7 +31,7 @@ export function ProblemNodeRenderer({
   onUpdate,
   onSpawn,
 }: Props) {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState("https://leetcode.com/problems/two-sum/");
   const [loading, setLoading] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [showAddNodePanel, setShowAddNodePanel] = useState(false);

@@ -2,8 +2,6 @@ package com.leetcanvas.collab.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.leetcanvas.collab.model.CursorMessage;
-import com.leetcanvas.collab.model.ImmutableCursorMessage;
 import com.leetcanvas.collab.model.ImmutableJoinMessage;
 import com.leetcanvas.collab.model.JoinMessage;
 import org.springframework.stereotype.Component;
@@ -88,20 +86,27 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * We use a TYPE DISCRIMINATOR pattern: parse just enough JSON to read the "type"
      * field, then route to the right handler. This same idea appears in Kafka consumers,
      * gRPC service dispatch, actor systems, and event buses.
+     *
+     * PURE RELAY ARCHITECTURE:
+     * For canvas events (node_create, node_move, etc.), the server doesn't interpret
+     * the payload — it just broadcasts the raw JSON to all peers in the same canvas.
+     * This keeps the server simple and decoupled from the frontend's data model.
+     * The client is the source of truth; the server is just a message router.
      */
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        // readTree() parses the raw JSON string into a navigable tree.
-        // We only need "type" right now — no need to fully deserialize yet.
         JsonNode root = objectMapper.readTree(message.getPayload());
         String type = root.get("type").asText();
 
-        // Route based on type. treeToValue() reuses the already-parsed tree
-        // rather than re-parsing the raw string a second time.
         switch (type) {
-            case "join"   -> handleJoin(session, objectMapper.treeToValue(root, ImmutableJoinMessage.class));
-            case "cursor" -> handleCursor(session, objectMapper.treeToValue(root, ImmutableCursorMessage.class));
-            // Unknown types are silently ignored. In production, log a warning.
+            // Join is special: it registers the session in a canvas room
+            case "join" -> handleJoin(session, objectMapper.treeToValue(root, ImmutableJoinMessage.class));
+
+            // All other events: just relay to peers in the same canvas.
+            // The server doesn't need to understand the payload — it's opaque bytes.
+            // This covers: cursor_move, node_create, node_move, node_update,
+            // node_delete, edge_create, edge_delete, and any future event types.
+            default -> broadcastToCanvas(session, message.getPayload());
         }
     }
 
@@ -128,41 +133,43 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Broadcasts a cursor position to all OTHER sessions in the same canvas.
+     * Generic broadcast: forwards a message to all OTHER sessions in the same canvas.
      * This is the fan-out: 1 message in → (N-1) messages out.
      *
+     * PURE RELAY:
+     * The server doesn't parse or validate the payload beyond extracting the type.
+     * It just forwards the raw JSON string. This means:
+     * - Adding new event types requires zero server changes
+     * - Frontend schema changes don't break the server
+     * - Server stays simple and fast
+     *
      * ORDERING NOTE:
-     * We don't guarantee message ordering. Rapid cursor updates from user A might
-     * arrive at user B slightly out of order due to thread scheduling. For cursors
-     * this is fine — a stale position for one frame is invisible. For collaborative
-     * text editing, ordering is critical and requires Operational Transforms (OT)
-     * or CRDTs. Cursor sharing is one of the easier real-time problems precisely
-     * because dropped or reordered updates are acceptable.
+     * We don't guarantee message ordering. Rapid updates from user A might arrive
+     * at user B slightly out of order due to thread scheduling. For cursors and
+     * node moves this is fine — a stale position for one frame is invisible. For
+     * collaborative text editing, ordering is critical and requires Operational
+     * Transforms (OT) or CRDTs.
      */
-    private void handleCursor(WebSocketSession session, CursorMessage msg) throws Exception {
+    private void broadcastToCanvas(WebSocketSession session, String payload) throws Exception {
         String canvasId = sessionToCanvas.get(session.getId());
 
-        // Guard: client sent cursor before joining — no canvas to route to.
+        // Guard: client sent message before joining — no canvas to route to.
         // Defensive programming: never assume messages arrive in the right order.
         if (canvasId == null) {
-            System.out.println("Warning: cursor from session that hasn't joined: " + session.getId());
+            System.out.println("Warning: message from session that hasn't joined: " + session.getId());
             return;
         }
 
-        String payload = objectMapper.writeValueAsString(msg);
         TextMessage outbound = new TextMessage(payload);
 
         for (WebSocketSession peer : canvasSessions.getOrDefault(canvasId, Set.of())) {
             if (!peer.isOpen()) continue;                        // skip dead sessions
-            if (peer.getId().equals(session.getId())) continue; // don't echo to sender
+            if (peer.getId().equals(session.getId())) continue;  // don't echo to sender
 
             // WHY synchronized(peer)?
             // WebSocketSession.sendMessage() is NOT thread-safe. If two threads call
-            // it on the same session concurrently (two users moving cursors at once),
-            // the WebSocket frames can get corrupted. synchronized(peer) ensures only
-            // one thread sends to a given peer at a time, using the peer object itself
-            // as the lock. A more scalable approach is a per-session send queue
-            // (no thread blocking), but synchronized is correct and simple here.
+            // it on the same session concurrently, the WebSocket frames can get corrupted.
+            // synchronized(peer) ensures only one thread sends to a given peer at a time.
             synchronized (peer) {
                 peer.sendMessage(outbound);
             }

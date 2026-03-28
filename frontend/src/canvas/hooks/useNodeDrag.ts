@@ -10,11 +10,11 @@ interface DragState {
   startWorldY: number;
 }
 
-type UpdateNode = (id: string, patch: Partial<CanvasNode>) => void;
+type MoveNode = (id: string, x: number, y: number) => void;
 
 export function useNodeDrag(
   transformRef: React.RefObject<Transform>,
-  updateNode: UpdateNode,
+  moveNode: MoveNode,
 ) {
   const dragRef = useRef<DragState>({
     active: false,
@@ -52,12 +52,13 @@ export function useNodeDrag(
       const zoom = transformRef.current.zoom;
       const dx = (e.clientX - dragRef.current.startScreenX) / zoom;
       const dy = (e.clientY - dragRef.current.startScreenY) / zoom;
-      updateNode(draggingIdRef.current, {
-        x: dragRef.current.startWorldX + dx,
-        y: dragRef.current.startWorldY + dy,
-      });
+      moveNode(
+        draggingIdRef.current,
+        dragRef.current.startWorldX + dx,
+        dragRef.current.startWorldY + dy,
+      );
     },
-    [transformRef, updateNode],
+    [transformRef, moveNode],
   );
 
   // Called by the viewport's onPointerUp (alongside pan handler).

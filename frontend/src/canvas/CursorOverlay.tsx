@@ -1,4 +1,4 @@
-import type { RemoteCursor } from "./hooks/useCollabCursors";
+import type { RemoteCursor } from "./hooks/useCanvasCollab";
 import type { Transform } from "./types";
 
 interface Props {

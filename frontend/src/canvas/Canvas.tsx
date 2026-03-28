@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { type CanvasNode, type Edge, type NodeType, createNoteNode, createProblemNode, createCodeNode } from '../shared/nodes';
 import { useCanvasTransform } from './hooks/useCanvasTransform';
 import { useNodeDrag } from './hooks/useNodeDrag';
-import { useCollabCursors } from './hooks/useCollabCursors';
+import { useCanvasCollab } from './hooks/useCanvasCollab';
 import { screenToWorld } from './utils/coordinates';
 import { NodeRenderer } from './NodeRenderer';
 import { CursorOverlay } from './CursorOverlay';
@@ -35,21 +35,66 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     onPointerUp: panPointerUp,
   } = useCanvasTransform(viewportRef);
 
-  const updateNode = useCallback((id: string, patch: Partial<CanvasNode>) => {
-    setNodes(prev =>
-      prev.map(n => (n.id === id ? { ...n, ...patch } as CanvasNode : n)),
-    );
-  }, []);
+  // Collab hook with event handlers for remote updates
+  const { cursors, send, onPointerMove: collabPointerMove } = useCanvasCollab(
+    canvasId,
+    userId,
+    viewportRef,
+    transformRef,
+    {
+      onNodeCreate: (node) => {
+        setNodes((prev) => [...prev, node]);
+      },
+      onNodeMove: (nodeId, x, y) => {
+        setNodes((prev) =>
+          prev.map((n) => (n.id === nodeId ? { ...n, x, y } : n)),
+        );
+      },
+      onNodeUpdate: (nodeId, patch) => {
+        setNodes((prev) =>
+          prev.map((n) => (n.id === nodeId ? { ...n, ...patch } as CanvasNode : n)),
+        );
+      },
+      onNodeDelete: (nodeId) => {
+        setNodes((prev) => prev.filter((n) => n.id !== nodeId));
+        setEdges((prev) => prev.filter((e) => e.fromNodeId !== nodeId && e.toNodeId !== nodeId));
+      },
+      onEdgeCreate: (edge) => {
+        setEdges((prev) => [...prev, edge]);
+      },
+      onEdgeDelete: (edgeId) => {
+        setEdges((prev) => prev.filter((e) => e.id !== edgeId));
+      },
+    },
+  );
+
+  // Update node locally + broadcast to others
+  const updateNode = useCallback(
+    (id: string, patch: Partial<CanvasNode>) => {
+      setNodes((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, ...patch } as CanvasNode : n)),
+      );
+      send({ type: 'node_update', nodeId: id, patch });
+    },
+    [send],
+  );
+
+  // Move node locally + broadcast — called by drag hook
+  const moveNode = useCallback(
+    (id: string, x: number, y: number) => {
+      setNodes((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, x, y } : n)),
+      );
+      send({ type: 'node_move', nodeId: id, x, y });
+    },
+    [send],
+  );
 
   const {
     onNodePointerDown,
     onPointerMove: dragPointerMove,
     onPointerUp: dragPointerUp,
-  } = useNodeDrag(transformRef, updateNode);
-
-  const { cursors, onPointerMove: collabPointerMove } = useCollabCursors(
-    canvasId, userId, viewportRef, transformRef,
-  );
+  } = useNodeDrag(transformRef, moveNode);
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -77,12 +122,18 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       const node = spawnNode(type, world.x, world.y);
       node.x = world.x - node.width / 2;
       node.y = world.y - node.height / 2;
-      setNodes(prev => [...prev, node]);
+
+      // Optimistic: apply locally first
+      setNodes((prev) => [...prev, node]);
+      send({ type: 'node_create', node });
+
       if (fromNodeId) {
-        setEdges(prev => [...prev, { id: crypto.randomUUID(), fromNodeId, toNodeId: node.id }]);
+        const edge: Edge = { id: crypto.randomUUID(), fromNodeId, toNodeId: node.id };
+        setEdges((prev) => [...prev, edge]);
+        send({ type: 'edge_create', edge });
       }
     },
-    [transformRef],
+    [transformRef, send],
   );
 
   return (
@@ -106,7 +157,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
           height: 0,
         }}
       >
-        {nodes.map(node => (
+        {nodes.map((node) => (
           <NodeRenderer
             key={node.id}
             node={node}
