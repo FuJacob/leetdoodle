@@ -1,6 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { Transform } from '../types';
-import { zoomToward } from '../utils/math';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import type { Transform } from "../types";
+import { zoomToward } from "../utils/math";
 
 const INITIAL_TRANSFORM: Transform = { x: 0, y: 0, zoom: 1 };
 
@@ -12,7 +18,9 @@ interface PanState {
   startTransformY: number;
 }
 
-export function useCanvasTransform(viewportRef: React.RefObject<HTMLDivElement | null>) {
+export function useCanvasTransform(
+  viewportRef: React.RefObject<HTMLDivElement | null>,
+) {
   const [transform, setTransform] = useState<Transform>(INITIAL_TRANSFORM);
 
   // Mirror transform in a ref so event handlers can read current value
@@ -43,11 +51,11 @@ export function useCanvasTransform(viewportRef: React.RefObject<HTMLDivElement |
       const rect = el.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
-      setTransform(prev => zoomToward(prev, screenX, screenY, e.deltaY));
+      setTransform((prev) => zoomToward(prev, screenX, screenY, e.deltaY));
     };
 
-    el.addEventListener('wheel', handleWheel, { passive: false });
-    return () => el.removeEventListener('wheel', handleWheel);
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
   }, [viewportRef]);
 
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -67,7 +75,7 @@ export function useCanvasTransform(viewportRef: React.RefObject<HTMLDivElement |
     if (!panRef.current.active) return;
     const dx = e.clientX - panRef.current.startX;
     const dy = e.clientY - panRef.current.startY;
-    setTransform(prev => ({
+    setTransform((prev) => ({
       ...prev,
       x: panRef.current.startTransformX + dx,
       y: panRef.current.startTransformY + dy,

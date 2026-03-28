@@ -1,5 +1,6 @@
 import { useCallback, useRef } from 'react';
-import type { CanvasNode, Transform } from '../types';
+import type { Transform } from '../types';
+import type { CanvasNode } from '../nodes';
 
 interface DragState {
   active: boolean;

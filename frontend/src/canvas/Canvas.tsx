@@ -1,30 +1,22 @@
 import { useCallback, useRef, useState } from 'react';
-import type { CanvasNode } from './types';
+import { CanvasNode, NoteNode, ProblemNode, type NodeType } from './nodes';
 import { useCanvasTransform } from './hooks/useCanvasTransform';
 import { useNodeDrag } from './hooks/useNodeDrag';
 import { screenToWorld } from './utils/coordinates';
 import { NodeRenderer } from '../nodes/NodeRenderer';
+import { SpawnPanel } from './SpawnPanel';
 
-let nextId = 1;
-
-function makeNode(x: number, y: number): CanvasNode {
-  return {
-    id: String(nextId++),
-    type: 'note',
-    x,
-    y,
-    width: 200,
-    height: 80,
-    data: { content: 'New note' },
-  };
+function spawnNode(type: NodeType, x: number, y: number): CanvasNode {
+  switch (type) {
+    case 'note':    return NoteNode.create(x, y);
+    case 'problem': return ProblemNode.create(x, y);
+  }
 }
 
 export function Canvas() {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
 
-  // useCanvasTransform attaches the wheel listener internally via useEffect.
-  // No onWheel prop needed on the viewport div.
   const {
     transform,
     transformRef,
@@ -34,7 +26,7 @@ export function Canvas() {
   } = useCanvasTransform(viewportRef);
 
   const updateNode = useCallback((id: string, patch: Partial<CanvasNode>) => {
-    setNodes(prev => prev.map(n => (n.id === id ? { ...n, ...patch } : n)));
+    setNodes(prev => prev.map(n => (n.id === id ? Object.assign(Object.create(Object.getPrototypeOf(n)), n, patch) : n)));
   }, []);
 
   const {
@@ -43,8 +35,6 @@ export function Canvas() {
     onPointerUp: dragPointerUp,
   } = useNodeDrag(transformRef, updateNode);
 
-  // Combine pan + drag at the viewport level.
-  // Both handlers are no-ops when their respective interaction isn't active.
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       panPointerMove(e);
@@ -61,18 +51,18 @@ export function Canvas() {
     [panPointerUp, dragPointerUp],
   );
 
-  // Place a node at world-space coordinates on double-click.
-  // Uses transformRef.current (not state) for accurate positioning during fast interactions.
-  const onDoubleClick = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (e.target !== e.currentTarget) return;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const world = screenToWorld(
-        e.clientX - rect.left,
-        e.clientY - rect.top,
-        transformRef.current,
-      );
-      setNodes(prev => [...prev, makeNode(world.x, world.y)]);
+  // Spawn a node at the center of the visible viewport, converted to world space.
+  const handleSpawn = useCallback(
+    (type: NodeType) => {
+      const el = viewportRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const world = screenToWorld(rect.width / 2, rect.height / 2, transformRef.current);
+      const node = spawnNode(type, world.x, world.y);
+      // Center the node on the spawn point
+      node.x = world.x - node.width / 2;
+      node.y = world.y - node.height / 2;
+      setNodes(prev => [...prev, node]);
     },
     [transformRef],
   );
@@ -80,12 +70,13 @@ export function Canvas() {
   return (
     <div
       ref={viewportRef}
-      className="fixed inset-0 overflow-hidden bg-zinc-950 [background-image:radial-gradient(circle,theme(colors.zinc.700)_1px,transparent_1px)] [background-size:32px_32px]"
+      className="fixed inset-0 overflow-hidden bg-zinc-950 bg-[radial-gradient(circle,var(--color-zinc-700)_1px,transparent_1px)] bg-size-[32px_32px]"
       onPointerDown={panPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onDoubleClick={onDoubleClick}
     >
+      <SpawnPanel onSpawn={handleSpawn} />
+
       <div
         className="absolute left-0 top-0"
         style={{
