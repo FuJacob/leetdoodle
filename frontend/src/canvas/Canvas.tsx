@@ -7,6 +7,7 @@ import { screenToWorld } from './utils/coordinates';
 import { NodeRenderer } from './NodeRenderer';
 import { CursorOverlay } from './CursorOverlay';
 import { EdgesOverlay } from './EdgesOverlay';
+import { SelectionOverlay } from './SelectionOverlay';
 import { SpawnPanel } from './SpawnPanel';
 
 interface CanvasProps {
@@ -26,6 +27,8 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [remoteSelections, setRemoteSelections] = useState<Map<string, string>>(new Map());
 
   const {
     transform,
@@ -65,6 +68,24 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       onEdgeDelete: (edgeId) => {
         setEdges((prev) => prev.filter((e) => e.id !== edgeId));
       },
+      onNodeSelect: (oderId, nodeId) => {
+        setRemoteSelections((prev) => {
+          const next = new Map(prev);
+          if (nodeId === null) {
+            next.delete(oderId);
+          } else {
+            next.set(oderId, nodeId);
+          }
+          return next;
+        });
+      },
+      onUserLeave: (oderId) => {
+        setRemoteSelections((prev) => {
+          const next = new Map(prev);
+          next.delete(oderId);
+          return next;
+        });
+      },
     },
   );
 
@@ -90,11 +111,52 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     [send],
   );
 
+  // Resize node locally + broadcast — called by selection overlay
+  const resizeNode = useCallback(
+    (id: string, width: number, height: number) => {
+      setNodes((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, width, height } : n)),
+      );
+      send({ type: 'node_update', nodeId: id, patch: { width, height } });
+    },
+    [send],
+  );
+
+  // Select node locally + broadcast
+  const selectNode = useCallback(
+    (nodeId: string | null) => {
+      setSelectedNodeId(nodeId);
+      send({ type: 'node_select', userId, nodeId });
+    },
+    [send, userId],
+  );
+
   const {
-    onNodePointerDown,
+    onNodePointerDown: dragPointerDown,
     onPointerMove: dragPointerMove,
     onPointerUp: dragPointerUp,
   } = useNodeDrag(transformRef, moveNode);
+
+  // Wrap node pointer down to also select the node
+  const onNodePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>, node: CanvasNode) => {
+      selectNode(node.id);
+      dragPointerDown(e, node);
+    },
+    [selectNode, dragPointerDown],
+  );
+
+  // Handle canvas background click — deselect
+  const handleCanvasPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // Only deselect if clicking the canvas itself, not a node
+      if (e.target === e.currentTarget) {
+        selectNode(null);
+      }
+      panPointerDown(e);
+    },
+    [selectNode, panPointerDown],
+  );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -127,26 +189,36 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       setNodes((prev) => [...prev, node]);
       send({ type: 'node_create', node });
 
+      // Select the newly created node
+      selectNode(node.id);
+
       if (fromNodeId) {
         const edge: Edge = { id: crypto.randomUUID(), fromNodeId, toNodeId: node.id };
         setEdges((prev) => [...prev, edge]);
         send({ type: 'edge_create', edge });
       }
     },
-    [transformRef, send],
+    [transformRef, send, selectNode],
   );
 
   return (
     <div
       ref={viewportRef}
       className="fixed inset-0 overflow-hidden bg-zinc-950 bg-[radial-gradient(circle,var(--color-zinc-700)_1px,transparent_1px)] bg-size-[32px_32px]"
-      onPointerDown={panPointerDown}
+      onPointerDown={handleCanvasPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
       <SpawnPanel onSpawn={handleSpawn} />
       <CursorOverlay cursors={cursors} transform={transform} />
       <EdgesOverlay nodes={nodes} edges={edges} transform={transform} />
+      <SelectionOverlay
+        nodes={nodes}
+        selectedNodeId={selectedNodeId}
+        remoteSelections={remoteSelections}
+        transform={transform}
+        onResize={resizeNode}
+      />
 
       <div
         className="absolute left-0 top-0"

@@ -10,7 +10,9 @@ export type CanvasEvent =
   | { type: "node_update"; nodeId: string; patch: Partial<CanvasNode> }
   | { type: "node_delete"; nodeId: string }
   | { type: "edge_create"; edge: Edge }
-  | { type: "edge_delete"; edgeId: string };
+  | { type: "edge_delete"; edgeId: string }
+  | { type: "node_select"; userId: string; nodeId: string | null }
+  | { type: "user_leave"; userId: string };
 
 // Callbacks for handling remote events — Canvas provides these to the hook
 export interface CanvasEventHandlers {
@@ -20,4 +22,6 @@ export interface CanvasEventHandlers {
   onNodeDelete?: (nodeId: string) => void;
   onEdgeCreate?: (edge: Edge) => void;
   onEdgeDelete?: (edgeId: string) => void;
+  onNodeSelect?: (userId: string, nodeId: string | null) => void;
+  onUserLeave?: (userId: string) => void;
 }

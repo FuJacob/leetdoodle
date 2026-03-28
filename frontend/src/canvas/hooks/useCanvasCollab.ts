@@ -72,6 +72,20 @@ export function useCanvasCollab(
         case "edge_delete":
           handlersRef.current.onEdgeDelete?.(msg.edgeId);
           break;
+
+        case "node_select":
+          handlersRef.current.onNodeSelect?.(msg.userId, msg.nodeId);
+          break;
+
+        case "user_leave":
+          // Clean up cursor and notify handler
+          setCursors((prev) => {
+            const next = new Map(prev);
+            next.delete(msg.userId);
+            return next;
+          });
+          handlersRef.current.onUserLeave?.(msg.userId);
+          break;
       }
     };
 

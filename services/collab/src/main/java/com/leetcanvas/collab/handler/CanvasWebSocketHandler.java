@@ -68,6 +68,12 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, String> sessionToCanvas = new ConcurrentHashMap<>();
 
     /**
+     * Reverse index: sessionId → userId.
+     * Needed to broadcast user_leave events when a connection closes.
+     */
+    private final Map<String, String> sessionToUserId = new ConcurrentHashMap<>();
+
+    /**
      * Jackson's ObjectMapper converts Java objects ↔ JSON strings.
      *
      * Injected via constructor (Dependency Injection) rather than `new ObjectMapper()`
@@ -125,8 +131,9 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
                 .computeIfAbsent(msg.canvasId(), k -> ConcurrentHashMap.newKeySet())
                 .add(session);
 
-        // Record the reverse mapping so afterConnectionClosed can clean up in O(1)
+        // Record reverse mappings so afterConnectionClosed can clean up and broadcast user_leave
         sessionToCanvas.put(session.getId(), msg.canvasId());
+        sessionToUserId.put(session.getId(), msg.userId());
 
         System.out.printf("User %s joined canvas %s (total sessions in canvas: %d)%n",
             msg.userId(), msg.canvasId(), canvasSessions.get(msg.canvasId()).size());
@@ -190,11 +197,29 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         // remove() returns the old value atomically, giving us the canvasId to clean up
         String canvasId = sessionToCanvas.remove(session.getId());
+        String oderId = sessionToUserId.remove(session.getId());
         if (canvasId == null) return; // session never joined, nothing to clean up
 
         Set<WebSocketSession> sessions = canvasSessions.get(canvasId);
         if (sessions != null) {
             sessions.remove(session);
+
+            // Broadcast user_leave to remaining peers so they can clean up cursors/selections
+            if (oderId != null && !sessions.isEmpty()) {
+                String payload = String.format("{\"type\":\"user_leave\",\"userId\":\"%s\"}", oderId);
+                TextMessage outbound = new TextMessage(payload);
+                for (WebSocketSession peer : sessions) {
+                    if (!peer.isOpen()) continue;
+                    try {
+                        synchronized (peer) {
+                            peer.sendMessage(outbound);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Failed to send user_leave to peer: " + e.getMessage());
+                    }
+                }
+            }
+
             // If this was the last user, evict the canvas entry entirely.
             // Without this, every canvas ever visited would accumulate in memory forever.
             if (sessions.isEmpty()) {
@@ -203,6 +228,6 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             }
         }
 
-        System.out.println("Session closed: " + session.getId() + " (status: " + status + ")");
+        System.out.println("Session closed: " + session.getId() + " (userId: " + oderId + ", status: " + status + ")");
     }
 }
