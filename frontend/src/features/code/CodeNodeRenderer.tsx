@@ -2,12 +2,13 @@ import { useEffect, useRef } from "react";
 import { EditorView, basicSetup } from "codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
+import type { TextEdit } from "../../shared/crdt";
 import type { CanvasNode, CodeNode } from "../../shared/nodes";
 
 interface Props {
   node: CodeNode;
   onPointerDown: (e: React.PointerEvent<HTMLDivElement>, node: CanvasNode) => void;
-  onUpdate: (id: string, patch: Partial<CanvasNode>) => void;
+  onTextEdits: (nodeId: string, edits: TextEdit[]) => void;
 }
 
 function getLanguageExtension(lang: string) {
@@ -20,9 +21,10 @@ function getLanguageExtension(lang: string) {
   }
 }
 
-export function CodeNodeRenderer({ node, onPointerDown, onUpdate }: Props) {
+export function CodeNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const applyingRemoteRef = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -33,14 +35,27 @@ export function CodeNodeRenderer({ node, onPointerDown, onUpdate }: Props) {
         basicSetup,
         getLanguageExtension(node.data.language),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            const content = update.state.doc.toString();
-            onUpdate(node.id, { data: { ...node.data, content } });
+          if (!update.docChanged) return;
+          if (applyingRemoteRef.current) return;
+
+          const edits: TextEdit[] = [];
+
+          // CodeMirror reports edits in pre-change coordinates.
+          // We forward those raw ranges to CRDTDocument.applyLocalEdits.
+          update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+            edits.push({
+              from: fromA,
+              to: toA,
+              insert: inserted.toString(),
+            });
+          });
+
+          if (edits.length > 0) {
+            onTextEdits(node.id, edits);
           }
         }),
-        // Dark theme to match the canvas
         EditorView.theme({
-          "&": { backgroundColor: "#18181b", color: "#e4e4e7" },  
+          "&": { backgroundColor: "#18181b", color: "#e4e4e7" },
           ".cm-content": { caretColor: "#e4e4e7" },
           ".cm-cursor": { borderLeftColor: "#e4e4e7" },
           ".cm-gutters": { backgroundColor: "#18181b", color: "#71717a", border: "none" },
@@ -57,9 +72,27 @@ export function CodeNodeRenderer({ node, onPointerDown, onUpdate }: Props) {
       view.destroy();
       viewRef.current = null;
     };
-    // Only run on mount — we don't want to recreate the editor on every content change
+    // Mount-only editor creation. Remote updates are applied via separate effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+
+    const current = view.state.doc.toString();
+    if (current === node.data.content) return;
+
+    applyingRemoteRef.current = true;
+    view.dispatch({
+      changes: {
+        from: 0,
+        to: current.length,
+        insert: node.data.content,
+      },
+    });
+    applyingRemoteRef.current = false;
+  }, [node.data.content]);
 
   return (
     <div
@@ -71,7 +104,6 @@ export function CodeNodeRenderer({ node, onPointerDown, onUpdate }: Props) {
         <span className="text-xs font-semibold text-zinc-400">Code</span>
         <span className="text-[10px] text-zinc-500">{node.data.language}</span>
       </div>
-      {/* Stop pointer events so typing/selecting doesn't trigger drag */}
       <div
         ref={containerRef}
         className="text-sm overflow-auto"

@@ -1,5 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { type CanvasNode, type Edge, type NodeType, createNoteNode, createProblemNode, createCodeNode } from '../shared/nodes';
+import type { CanvasOutboundEvent } from '../shared/events';
+import { useCanvasCrdt } from '../shared/crdt/useCanvasCrdt';
 import { useCanvasTransform } from './hooks/useCanvasTransform';
 import { useNodeDrag } from './hooks/useNodeDrag';
 import { useCanvasCollab } from './hooks/useCanvasCollab';
@@ -29,6 +31,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [remoteSelections, setRemoteSelections] = useState<Map<string, string>>(new Map());
+  const sendRef = useRef<((event: CanvasOutboundEvent) => void) | null>(null);
 
   const {
     transform,
@@ -37,6 +40,18 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     onPointerMove: panPointerMove,
     onPointerUp: panPointerUp,
   } = useCanvasTransform(viewportRef);
+
+  const {
+    onTextEdits,
+    onCrdtOp,
+    onSyncResponse,
+    onNodeDelete: onDeleteCrdtDoc,
+  } = useCanvasCrdt({
+    userId,
+    nodes,
+    setNodes,
+    sendRef,
+  });
 
   // Collab hook with event handlers for remote updates
   const { cursors, send, onPointerMove: collabPointerMove } = useCanvasCollab(
@@ -61,6 +76,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       onNodeDelete: (nodeId) => {
         setNodes((prev) => prev.filter((n) => n.id !== nodeId));
         setEdges((prev) => prev.filter((e) => e.fromNodeId !== nodeId && e.toNodeId !== nodeId));
+        onDeleteCrdtDoc(nodeId);
       },
       onEdgeCreate: (edge) => {
         setEdges((prev) => [...prev, edge]);
@@ -68,26 +84,36 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       onEdgeDelete: (edgeId) => {
         setEdges((prev) => prev.filter((e) => e.id !== edgeId));
       },
-      onNodeSelect: (oderId, nodeId) => {
+      onNodeSelect: (remoteUserId, nodeId) => {
         setRemoteSelections((prev) => {
           const next = new Map(prev);
           if (nodeId === null) {
-            next.delete(oderId);
+            next.delete(remoteUserId);
           } else {
-            next.set(oderId, nodeId);
+            next.set(remoteUserId, nodeId);
           }
           return next;
         });
       },
-      onUserLeave: (oderId) => {
+      onUserLeave: (remoteUserId) => {
         setRemoteSelections((prev) => {
           const next = new Map(prev);
-          next.delete(oderId);
+          next.delete(remoteUserId);
           return next;
         });
       },
+      onCrdtOp: (docId, op) => {
+        onCrdtOp(docId, op);
+      },
+      onSyncResponse: (docId, ops) => {
+        onSyncResponse(docId, ops);
+      },
     },
   );
+
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
 
   // Update node locally + broadcast to others
   const updateNode = useCallback(
@@ -236,6 +262,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
             onPointerDown={onNodePointerDown}
             onUpdate={updateNode}
             onSpawn={handleSpawn}
+            onTextEdits={onTextEdits}
           />
         ))}
       </div>

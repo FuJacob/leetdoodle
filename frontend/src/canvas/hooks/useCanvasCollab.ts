@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Transform } from "../types";
-import type { CanvasEvent, CanvasEventHandlers } from "../../shared/events";
+import type {
+  CanvasEventHandlers,
+  CanvasInboundEvent,
+  CanvasOutboundEvent,
+} from "../../shared/events";
 import { screenToWorld } from "../utils/coordinates";
 
 export interface RemoteCursor {
@@ -20,7 +24,7 @@ export function useCanvasCollab(
   const wsRef = useRef<WebSocket | null>(null);
   const lastCursorSentAt = useRef(0);
 
-  // Store handlers in a ref so we don't reconnect when they change
+  // Keep newest callbacks without reconnecting the socket every render.
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
 
@@ -28,14 +32,22 @@ export function useCanvasCollab(
     const ws = new WebSocket("ws://localhost:8080/ws");
 
     ws.onopen = () => {
+      // Assign only when open so stale constructing sockets cannot clobber ref.
       wsRef.current = ws;
       ws.send(JSON.stringify({ type: "join", canvasId, userId }));
     };
 
     ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data as string) as CanvasEvent & { userId?: string };
+      let msg: CanvasInboundEvent;
+      try {
+        msg = JSON.parse(event.data as string) as CanvasInboundEvent;
+      } catch (error) {
+        console.error("Failed to parse WebSocket message", error);
+        return;
+      }
 
-      // Ignore our own events (server echoes back to sender too)
+      // The relay currently echoes to all peers except sender for most events,
+      // but this guard is still useful for safety and future server changes.
       if ("userId" in msg && msg.userId === userId) return;
 
       switch (msg.type) {
@@ -78,7 +90,6 @@ export function useCanvasCollab(
           break;
 
         case "user_leave":
-          // Clean up cursor and notify handler
           setCursors((prev) => {
             const next = new Map(prev);
             next.delete(msg.userId);
@@ -86,11 +97,20 @@ export function useCanvasCollab(
           });
           handlersRef.current.onUserLeave?.(msg.userId);
           break;
+
+        case "crdt_op":
+          handlersRef.current.onCrdtOp?.(msg.docId, msg.op, msg.userId);
+          break;
+
+        case "sync_response":
+          handlersRef.current.onSyncResponse?.(msg.docId, msg.ops);
+          break;
       }
     };
 
     ws.onclose = () => {
-      wsRef.current = null;
+      // StrictMode-safe: only clear if this exact socket is still current.
+      if (wsRef.current === ws) wsRef.current = null;
     };
 
     ws.onerror = (err) => {
@@ -102,22 +122,22 @@ export function useCanvasCollab(
     };
   }, [canvasId, userId]);
 
-  // Send any canvas event to the server
   const send = useCallback(
-    (event: CanvasEvent) => {
+    (event: CanvasOutboundEvent) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      // Attach canvasId so server knows which room to broadcast to
+
+      // canvasId + userId are envelope metadata used by relay/router logic.
       ws.send(JSON.stringify({ ...event, canvasId, userId }));
     },
     [canvasId, userId],
   );
 
-  // Throttled cursor move — plugged into the viewport's onPointerMove
+  // Throttled cursor move updates (50fps) to cap network spam.
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       const now = performance.now();
-      if (now - lastCursorSentAt.current < 20) return; // 50fps throttle
+      if (now - lastCursorSentAt.current < 20) return;
       lastCursorSentAt.current = now;
 
       const rect = viewportRef.current?.getBoundingClientRect();

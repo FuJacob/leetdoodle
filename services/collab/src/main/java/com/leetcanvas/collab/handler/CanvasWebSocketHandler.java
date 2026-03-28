@@ -2,6 +2,8 @@ package com.leetcanvas.collab.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.leetcanvas.collab.model.ImmutableJoinMessage;
 import com.leetcanvas.collab.model.JoinMessage;
 import org.springframework.stereotype.Component;
@@ -10,6 +12,8 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,6 +78,30 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, String> sessionToUserId = new ConcurrentHashMap<>();
 
     /**
+     * In-memory CRDT op log per document.
+     *
+     * Key format: "{canvasId}::{docId}".
+     *
+     * WHY KEEP AN OP LOG AT THE RELAY?
+     * WebSocket fan-out only handles "live" peers. If a user reconnects later,
+     * they missed historical operations. The log gives us a replay source so
+     * sync_request can return just the missing ops.
+     *
+     * This is intentionally in-memory for learning simplicity. Production would
+     * persist to Redis/Postgres/Kafka so process restarts do not lose history.
+     */
+    private final Map<String, List<JsonNode>> docOpLog = new ConcurrentHashMap<>();
+
+    /**
+     * Dedup set per document for idempotency.
+     *
+     * CRDT networks are retry-heavy by design. If the same op is re-sent
+     * (network retries, reconnect replay, etc.), we must avoid rebroadcasting
+     * and duplicating it in the log. Key is "{actor}:{seq}".
+     */
+    private final Map<String, Set<String>> docSeenOpKeys = new ConcurrentHashMap<>();
+
+    /**
      * Jackson's ObjectMapper converts Java objects ↔ JSON strings.
      *
      * Injected via constructor (Dependency Injection) rather than `new ObjectMapper()`
@@ -102,11 +130,24 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         JsonNode root = objectMapper.readTree(message.getPayload());
-        String type = root.get("type").asText();
+        JsonNode typeNode = root.get("type");
+        if (typeNode == null) {
+            System.out.println("Warning: incoming message missing type field");
+            return;
+        }
+        String type = typeNode.asText();
 
         switch (type) {
             // Join is special: it registers the session in a canvas room
             case "join" -> handleJoin(session, objectMapper.treeToValue(root, ImmutableJoinMessage.class));
+
+            // CRDT ops are logged + deduplicated + fanned out.
+            // This gives us reconnection replay without changing the relay model.
+            case "crdt_op" -> handleCrdtOp(session, root, message.getPayload());
+
+            // sync_request is not broadcast. It's a point-to-point response that
+            // returns only ops the requester has not yet integrated.
+            case "sync_request" -> handleSyncRequest(session, root);
 
             // All other events: just relay to peers in the same canvas.
             // The server doesn't need to understand the payload — it's opaque bytes.
@@ -137,6 +178,120 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
 
         System.out.printf("User %s joined canvas %s (total sessions in canvas: %d)%n",
             msg.userId(), msg.canvasId(), canvasSessions.get(msg.canvasId()).size());
+    }
+
+    /**
+     * Handles one CRDT operation envelope.
+     *
+     * Responsibilities:
+     * 1) Validate minimally required routing fields
+     * 2) Deduplicate by op key (actor:seq)
+     * 3) Append to per-doc op log for future replay
+     * 4) Fan-out to live peers in the same canvas
+     *
+     * WHY DEDUP AT THE RELAY?
+     * CRDT operations are idempotent on clients, but dedup at relay still matters:
+     * - reduces network amplification under retry storms
+     * - keeps replay logs compact
+     * - simplifies debugging (one canonical entry per op)
+     */
+    private void handleCrdtOp(WebSocketSession session, JsonNode root, String rawPayload) throws Exception {
+        String canvasId = readText(root, "canvasId");
+        String docId = readText(root, "docId");
+        JsonNode op = root.get("op");
+
+        if (canvasId == null || docId == null || op == null) {
+            System.out.println("Warning: invalid crdt_op payload, missing canvasId/docId/op");
+            return;
+        }
+
+        String docKey = docKey(canvasId, docId);
+        String opKey = opKey(op);
+
+        // If actor/seq is missing, we cannot deduplicate safely, so we still relay
+        // but avoid polluting replay log with unkeyed entries.
+        if (opKey == null) {
+            System.out.println("Warning: crdt_op missing actor/seq, relaying without log append");
+            broadcastToCanvas(session, rawPayload);
+            return;
+        }
+
+        Set<String> seen = docSeenOpKeys.computeIfAbsent(docKey, k -> ConcurrentHashMap.newKeySet());
+        if (!seen.add(opKey)) {
+            // Duplicate op (retry/replay). Drop silently.
+            return;
+        }
+
+        List<JsonNode> log = docOpLog.computeIfAbsent(docKey, k -> new ArrayList<>());
+        synchronized (log) {
+            // Deep copy prevents accidental mutation if caller reuses mutable JsonNodes.
+            log.add(op.deepCopy());
+        }
+
+        broadcastToCanvas(session, rawPayload);
+    }
+
+    /**
+     * Responds to sync_request with only the operations the requester is missing.
+     *
+     * Request payload shape:
+     * {
+     *   "type": "sync_request",
+     *   "canvasId": "...",
+     *   "docId": "...",
+     *   "stateVector": { "actorA": 12, "actorB": 4 }
+     * }
+     *
+     * Response payload shape:
+     * {
+     *   "type": "sync_response",
+     *   "docId": "...",
+     *   "ops": [ ... ]
+     * }
+     */
+    private void handleSyncRequest(WebSocketSession session, JsonNode root) throws Exception {
+        String canvasId = readText(root, "canvasId");
+        String docId = readText(root, "docId");
+
+        if (canvasId == null || docId == null) {
+            System.out.println("Warning: invalid sync_request payload, missing canvasId/docId");
+            return;
+        }
+
+        JsonNode vectorNode = root.get("stateVector");
+        String docKey = docKey(canvasId, docId);
+        List<JsonNode> log = docOpLog.getOrDefault(docKey, List.of());
+        List<JsonNode> missing = new ArrayList<>();
+
+        synchronized (log) {
+            for (JsonNode op : log) {
+                String actor = readText(op, "actor");
+                Integer seq = readInt(op, "seq");
+                if (actor == null || seq == null) continue;
+
+                int seenSeq = -1;
+                if (vectorNode != null && vectorNode.has(actor)) {
+                    seenSeq = vectorNode.get(actor).asInt(-1);
+                }
+
+                if (seq > seenSeq) {
+                    missing.add(op);
+                }
+            }
+        }
+
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("type", "sync_response");
+        response.put("docId", docId);
+        ArrayNode ops = response.putArray("ops");
+        for (JsonNode op : missing) {
+            ops.add(op);
+        }
+
+        TextMessage outbound = new TextMessage(objectMapper.writeValueAsString(response));
+        synchronized (session) {
+            session.sendMessage(outbound);
+        }
     }
 
     /**
@@ -183,6 +338,31 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private String docKey(String canvasId, String docId) {
+        return canvasId + "::" + docId;
+    }
+
+    private String opKey(JsonNode op) {
+        String actor = readText(op, "actor");
+        Integer seq = readInt(op, "seq");
+        if (actor == null || seq == null) return null;
+        return actor + ":" + seq;
+    }
+
+    private String readText(JsonNode node, String field) {
+        if (node == null) return null;
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) return null;
+        return value.asText();
+    }
+
+    private Integer readInt(JsonNode node, String field) {
+        if (node == null) return null;
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) return null;
+        return value.asInt();
+    }
+
     /**
      * Called automatically when a client disconnects — tab close, network drop, etc.
      *
@@ -197,7 +377,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         // remove() returns the old value atomically, giving us the canvasId to clean up
         String canvasId = sessionToCanvas.remove(session.getId());
-        String oderId = sessionToUserId.remove(session.getId());
+        String userId = sessionToUserId.remove(session.getId());
         if (canvasId == null) return; // session never joined, nothing to clean up
 
         Set<WebSocketSession> sessions = canvasSessions.get(canvasId);
@@ -205,8 +385,8 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             sessions.remove(session);
 
             // Broadcast user_leave to remaining peers so they can clean up cursors/selections
-            if (oderId != null && !sessions.isEmpty()) {
-                String payload = String.format("{\"type\":\"user_leave\",\"userId\":\"%s\"}", oderId);
+            if (userId != null && !sessions.isEmpty()) {
+                String payload = String.format("{\"type\":\"user_leave\",\"userId\":\"%s\"}", userId);
                 TextMessage outbound = new TextMessage(payload);
                 for (WebSocketSession peer : sessions) {
                     if (!peer.isOpen()) continue;
@@ -228,6 +408,6 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             }
         }
 
-        System.out.println("Session closed: " + session.getId() + " (userId: " + oderId + ", status: " + status + ")");
+        System.out.println("Session closed: " + session.getId() + " (userId: " + userId + ", status: " + status + ")");
     }
 }

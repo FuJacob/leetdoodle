@@ -198,22 +198,22 @@ export function SelectionOverlay({
       onPointerUp={handlePointerUp}
     >
       {/* Remote selections — thin border */}
-      {Array.from(remoteSelections.entries()).map(([oderId, nodeId]) => {
+      {Array.from(remoteSelections.entries()).map(([remoteUserId, nodeId]) => {
         const node = nodes.find((n) => n.id === nodeId);
         if (!node) return null;
 
-        const color = getUserColor(oderId);
+        const color = getUserColor(remoteUserId);
         const x = node.x * transform.zoom + transform.x;
         const y = node.y * transform.zoom + transform.y;
         const w = node.width * transform.zoom;
         const h = node.height * transform.zoom;
 
-        return (
-          <div
-            key={oderId}
-            className="absolute"
-            style={{
-              left: x - 2,
+          return (
+            <div
+            key={remoteUserId}
+              className="absolute"
+              style={{
+                left: x - 2,
               top: y - 2,
               width: w + 4,
               height: h + 4,

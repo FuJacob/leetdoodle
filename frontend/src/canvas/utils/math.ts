@@ -1,8 +1,8 @@
-import type { Transform } from '../types';
+import type { Transform } from "../types";
 
-export const MIN_ZOOM = 0.1;
+export const MIN_ZOOM = 0.03;
 export const MAX_ZOOM = 5;
-export const ZOOM_SENSITIVITY = 0.001;
+export const ZOOM_SENSITIVITY = 0.02;
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -20,7 +20,8 @@ export function zoomToward(
   screenY: number,
   delta: number,
 ): Transform {
-  const factor = 1 - delta * ZOOM_SENSITIVITY;
+  // Exponential scaling keeps zoom factor positive and consistent across devices.
+  const factor = Math.exp(-delta * ZOOM_SENSITIVITY);
   const newZoom = clamp(transform.zoom * factor, MIN_ZOOM, MAX_ZOOM);
   const ratio = newZoom / transform.zoom;
 

@@ -90,15 +90,15 @@ export function ProblemNodeRenderer({
     const error = node.data.status === "error" ? node.data.message : null;
     return (
       <div
-        className={`${base} cursor-grab active:cursor-grabbing`}
-        style={{ left: node.x, top: node.y, width: node.width }}
+        className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
+        style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
         onPointerDown={(e) => onPointerDown(e, node)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         <div className="mb-2 text-xs font-semibold text-zinc-400">Problem</div>
         {/* Stop pointer-down so typing in the input doesn't start a drag */}
-        <div onPointerDown={(e) => e.stopPropagation()}>
+        <div className="flex-1 min-h-0" onPointerDown={(e) => e.stopPropagation()}>
           <input
             type="text"
             className="w-full bg-zinc-800 border border-zinc-600 text-xs text-zinc-100 px-2 py-1 outline-none placeholder:text-zinc-500"
@@ -128,8 +128,8 @@ export function ProblemNodeRenderer({
 
   return (
     <div
-      className={`${base} cursor-grab active:cursor-grabbing`}
-      style={{ left: node.x, top: node.y, width: node.width }}
+      className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
+      style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
       onPointerDown={(e) => onPointerDown(e, node)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -156,7 +156,7 @@ export function ProblemNodeRenderer({
 
       {/* Render HTML content directly — safe since it's from our own DB */}
       <div
-        className="text-xs text-zinc-400 mb-2 leading-relaxed max-h-48 overflow-y-auto [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:text-zinc-300 [&_pre]:bg-zinc-800 [&_pre]:p-2 [&_pre]:overflow-x-auto [&_strong]:text-zinc-300 [&_a]:text-blue-400 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+        className="text-xs text-zinc-400 mb-2 leading-relaxed flex-1 min-h-0 overflow-y-auto [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:text-zinc-300 [&_pre]:bg-zinc-800 [&_pre]:p-2 [&_pre]:overflow-x-auto [&_strong]:text-zinc-300 [&_a]:text-blue-400 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
         dangerouslySetInnerHTML={{ __html: content }}
       />
 
