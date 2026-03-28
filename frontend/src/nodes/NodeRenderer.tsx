@@ -1,4 +1,4 @@
-import type { CanvasNode, NoteNode, ProblemNode } from '../canvas/nodes';
+import type { CanvasNode } from '../canvas/nodes';
 import { NoteNodeRenderer } from './NoteNodeRenderer';
 import { ProblemNodeRenderer } from './ProblemNodeRenderer';
 
@@ -10,8 +10,8 @@ interface Props {
 export function NodeRenderer({ node, onPointerDown }: Props) {
   switch (node.type) {
     case 'note':
-      return <NoteNodeRenderer node={node as unknown as NoteNode} onPointerDown={onPointerDown} />;
+      return <NoteNodeRenderer node={node} onPointerDown={onPointerDown} />;
     case 'problem':
-      return <ProblemNodeRenderer node={node as unknown as ProblemNode} onPointerDown={onPointerDown} />;
+      return <ProblemNodeRenderer node={node} onPointerDown={onPointerDown} />;
   }
 }

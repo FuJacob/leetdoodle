@@ -1,71 +1,61 @@
 let nextId = 1;
 
-export type NodeType = 'note' | 'problem';
+// ---------------------------------------------------------------------------
+// Base fields shared by every node type
+// ---------------------------------------------------------------------------
 
-export interface Transform {
+interface CanvasNodeBase {
+  id: string;
   x: number;
   y: number;
-  zoom: number;
+  width: number;
+  height: number;
 }
 
 // ---------------------------------------------------------------------------
-// Abstract base
+// Node types
 // ---------------------------------------------------------------------------
 
-export abstract class CanvasNode {
-  abstract readonly type: NodeType;
-  abstract data: Record<string, unknown>;
-
-  constructor(
-    public id: string,
-    public x: number,
-    public y: number,
-    public readonly width: number,
-    public readonly height: number,
-  ) {}
+export interface NoteNode extends CanvasNodeBase {
+  type: 'note';
+  data: { content: string };
 }
 
-// ---------------------------------------------------------------------------
-// NoteNode
-// ---------------------------------------------------------------------------
-
-export interface NoteData extends Record<string, unknown> {
-  content: string;
+export interface ProblemNode extends CanvasNodeBase {
+  type: 'problem';
+  data: { title: string; description: string };
 }
 
-export class NoteNode extends CanvasNode {
-  readonly type = 'note' as const;
-  data: NoteData;
+// Discriminated union — TypeScript narrows this automatically in switch/if
+export type CanvasNode = NoteNode | ProblemNode;
 
-  constructor(id: string, x: number, y: number, data?: Partial<NoteData>) {
-    super(id, x, y, 220, 120);
-    this.data = { content: '', ...data };
-  }
-
-  static create(x: number, y: number): NoteNode {
-    return new NoteNode(String(nextId++), x, y);
-  }
-}
+// Derived from the union so it never gets out of sync
+export type NodeType = CanvasNode['type'];
 
 // ---------------------------------------------------------------------------
-// ProblemNode
+// Factory functions
 // ---------------------------------------------------------------------------
 
-export interface ProblemData extends Record<string, unknown> {
-  title: string;
-  description: string;
+export function createNoteNode(x: number, y: number): NoteNode {
+  return {
+    id: String(nextId++),
+    type: 'note',
+    x,
+    y,
+    width: 220,
+    height: 120,
+    data: { content: '' },
+  };
 }
 
-export class ProblemNode extends CanvasNode {
-  readonly type = 'problem' as const;
-  data: ProblemData;
-
-  constructor(id: string, x: number, y: number, data?: Partial<ProblemData>) {
-    super(id, x, y, 280, 160);
-    this.data = { title: 'Untitled Problem', description: '', ...data };
-  }
-
-  static create(x: number, y: number): ProblemNode {
-    return new ProblemNode(String(nextId++), x, y);
-  }
+export function createProblemNode(x: number, y: number): ProblemNode {
+  return {
+    id: String(nextId++),
+    type: 'problem',
+    x,
+    y,
+    width: 280,
+    height: 160,
+    data: { title: 'Untitled Problem', description: '' },
+  };
 }

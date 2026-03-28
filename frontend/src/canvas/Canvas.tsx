@@ -1,19 +1,26 @@
 import { useCallback, useRef, useState } from 'react';
-import { CanvasNode, NoteNode, ProblemNode, type NodeType } from './nodes';
+import { type CanvasNode, type NodeType, createNoteNode, createProblemNode } from './nodes';
 import { useCanvasTransform } from './hooks/useCanvasTransform';
 import { useNodeDrag } from './hooks/useNodeDrag';
+import { useCollabCursors } from './hooks/useCollabCursors';
 import { screenToWorld } from './utils/coordinates';
 import { NodeRenderer } from '../nodes/NodeRenderer';
+import { CursorOverlay } from '../nodes/CursorOverlay';
 import { SpawnPanel } from './SpawnPanel';
+
+interface CanvasProps {
+  canvasId: string;
+  userId: string;
+}
 
 function spawnNode(type: NodeType, x: number, y: number): CanvasNode {
   switch (type) {
-    case 'note':    return NoteNode.create(x, y);
-    case 'problem': return ProblemNode.create(x, y);
+    case 'note':    return createNoteNode(x, y);
+    case 'problem': return createProblemNode(x, y);
   }
 }
 
-export function Canvas() {
+export function Canvas({ canvasId, userId }: CanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
 
@@ -26,7 +33,9 @@ export function Canvas() {
   } = useCanvasTransform(viewportRef);
 
   const updateNode = useCallback((id: string, patch: Partial<CanvasNode>) => {
-    setNodes(prev => prev.map(n => (n.id === id ? Object.assign(Object.create(Object.getPrototypeOf(n)), n, patch) : n)));
+    setNodes(prev =>
+      prev.map(n => (n.id === id ? { ...n, ...patch } as CanvasNode : n)),
+    );
   }, []);
 
   const {
@@ -35,12 +44,17 @@ export function Canvas() {
     onPointerUp: dragPointerUp,
   } = useNodeDrag(transformRef, updateNode);
 
+  const { cursors, onPointerMove: collabPointerMove } = useCollabCursors(
+    canvasId, userId, viewportRef, transformRef,
+  );
+
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       panPointerMove(e);
       dragPointerMove(e);
+      collabPointerMove(e);
     },
-    [panPointerMove, dragPointerMove],
+    [panPointerMove, dragPointerMove, collabPointerMove],
   );
 
   const onPointerUp = useCallback(
@@ -51,7 +65,6 @@ export function Canvas() {
     [panPointerUp, dragPointerUp],
   );
 
-  // Spawn a node at the center of the visible viewport, converted to world space.
   const handleSpawn = useCallback(
     (type: NodeType) => {
       const el = viewportRef.current;
@@ -59,7 +72,6 @@ export function Canvas() {
       const rect = el.getBoundingClientRect();
       const world = screenToWorld(rect.width / 2, rect.height / 2, transformRef.current);
       const node = spawnNode(type, world.x, world.y);
-      // Center the node on the spawn point
       node.x = world.x - node.width / 2;
       node.y = world.y - node.height / 2;
       setNodes(prev => [...prev, node]);
@@ -76,6 +88,7 @@ export function Canvas() {
       onPointerUp={onPointerUp}
     >
       <SpawnPanel onSpawn={handleSpawn} />
+      <CursorOverlay cursors={cursors} transform={transform} />
 
       <div
         className="absolute left-0 top-0"
