@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
-import { type CanvasNode, type NodeType, createNoteNode, createProblemNode } from '../shared/nodes';
+import { type CanvasNode, type Edge, type NodeType, createNoteNode, createProblemNode, createCodeNode } from '../shared/nodes';
 import { useCanvasTransform } from './hooks/useCanvasTransform';
 import { useNodeDrag } from './hooks/useNodeDrag';
 import { useCollabCursors } from './hooks/useCollabCursors';
 import { screenToWorld } from './utils/coordinates';
 import { NodeRenderer } from './NodeRenderer';
 import { CursorOverlay } from './CursorOverlay';
+import { EdgesOverlay } from './EdgesOverlay';
 import { SpawnPanel } from './SpawnPanel';
 
 interface CanvasProps {
@@ -17,12 +18,14 @@ function spawnNode(type: NodeType, x: number, y: number): CanvasNode {
   switch (type) {
     case 'note':    return createNoteNode(x, y);
     case 'problem': return createProblemNode(x, y);
+    case 'code':    return createCodeNode(x, y);
   }
 }
 
 export function Canvas({ canvasId, userId }: CanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
 
   const {
     transform,
@@ -66,7 +69,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   );
 
   const handleSpawn = useCallback(
-    (type: NodeType) => {
+    (type: NodeType, fromNodeId?: string) => {
       const el = viewportRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
@@ -75,6 +78,9 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       node.x = world.x - node.width / 2;
       node.y = world.y - node.height / 2;
       setNodes(prev => [...prev, node]);
+      if (fromNodeId) {
+        setEdges(prev => [...prev, { id: crypto.randomUUID(), fromNodeId, toNodeId: node.id }]);
+      }
     },
     [transformRef],
   );
@@ -89,6 +95,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     >
       <SpawnPanel onSpawn={handleSpawn} />
       <CursorOverlay cursors={cursors} transform={transform} />
+      <EdgesOverlay nodes={nodes} edges={edges} transform={transform} />
 
       <div
         className="absolute left-0 top-0"
@@ -105,6 +112,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
             node={node}
             onPointerDown={onNodePointerDown}
             onUpdate={updateNode}
+            onSpawn={handleSpawn}
           />
         ))}
       </div>

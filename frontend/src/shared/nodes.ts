@@ -59,11 +59,29 @@ export interface ProblemNode extends CanvasNodeBase {
 }
 
 // ---------------------------------------------------------------------------
+// Code node
+// ---------------------------------------------------------------------------
+
+export interface CodeNode extends CanvasNodeBase {
+  type: 'code';
+  data: {
+    content: string;
+    language: string;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Union + helpers
 // ---------------------------------------------------------------------------
 
-export type CanvasNode = NoteNode | ProblemNode;
+export type CanvasNode = NoteNode | ProblemNode | CodeNode;
 export type NodeType = CanvasNode['type'];
+
+export interface Edge {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+}
 
 export function createNoteNode(x: number, y: number): NoteNode {
   return {
@@ -86,5 +104,17 @@ export function createProblemNode(x: number, y: number): ProblemNode {
     width: 320,
     height: 120,
     data: { status: 'empty' },
+  };
+}
+
+export function createCodeNode(x: number, y: number): CodeNode {
+  return {
+    id: String(nextId++),
+    type: 'code',
+    x,
+    y,
+    width: 400,
+    height: 250,
+    data: { content: '', language: 'javascript' },
   };
 }

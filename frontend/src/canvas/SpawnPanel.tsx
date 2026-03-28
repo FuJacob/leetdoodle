@@ -7,6 +7,7 @@ interface SpawnPanelProps {
 const NODE_OPTIONS: { type: NodeType; label: string }[] = [
   { type: 'note',    label: 'Note' },
   { type: 'problem', label: 'Problem' },
+  { type: 'code',    label: 'Code' },
 ];
 
 export function SpawnPanel({ onSpawn }: SpawnPanelProps) {
