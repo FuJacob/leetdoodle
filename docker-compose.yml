@@ -5,6 +5,11 @@ services:
       POSTGRES_DB: leetcanvas
       POSTGRES_USER: leetcanvas
       POSTGRES_PASSWORD: leetcanvas
+    # wal_level=logical is required for Debezium CDC.
+    # The default level ("replica") only supports physical replication;
+    # logical decoding (which Debezium uses to read individual row changes)
+    # needs the extra information that logical WAL includes.
+    command: postgres -c wal_level=logical
     ports:
       - "5432:5432"
     volumes:
@@ -29,5 +34,21 @@ services:
       timeout: 5s
       retries: 5
 
+  debezium:
+    image: debezium/server:2.7
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      # Config directory: Debezium reads application.properties from here
+      - ./debezium/conf:/debezium/conf
+      # Data directory: Debezium stores the WAL offset file here so it
+      # knows where to resume after a restart. Without persistence, it
+      # would re-read from the beginning and re-publish old events.
+      - debezium-data:/debezium/data
+
 volumes:
   postgres-data:
+  debezium-data:

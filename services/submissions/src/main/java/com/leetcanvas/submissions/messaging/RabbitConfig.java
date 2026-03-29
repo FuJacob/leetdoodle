@@ -1,13 +1,24 @@
 package com.leetcanvas.submissions.messaging;
 
 import org.springframework.amqp.core.*;
-import org.springframework.amqp.rabbit.connection.ConnectionFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Declares the exchange, queue, and binding in RabbitMQ.
+ *
+ * Spring AMQP calls these "admin beans" — they're idempotent declarations
+ * that ensure the topology exists before any message is published. Even
+ * though the submissions service no longer publishes directly (Debezium does),
+ * we keep these declarations here so the queue exists when the worker starts.
+ *
+ * WHY KEEP THE TOPOLOGY IN SUBMISSIONS?
+ * The submissions service owns the contract: it defines what an eval job looks
+ * like and where it lands. The worker is a consumer — it shouldn't be
+ * responsible for creating infrastructure it didn't design.
+ */
 @Configuration
 public class RabbitConfig {
 
@@ -17,9 +28,7 @@ public class RabbitConfig {
 
     /**
      * Direct exchange: messages route to queues whose binding key matches
-     * the routing key exactly. Simple and predictable — good default for
-     * task queues. (Topic exchange would let us add routing patterns like
-     * "eval.python.*" later if we want per-language queues.)
+     * the routing key exactly.
      */
     @Bean
     public DirectExchange evalExchange() {
@@ -40,20 +49,8 @@ public class RabbitConfig {
         return BindingBuilder.bind(evalQueue).to(evalExchange).with(ROUTING_KEY);
     }
 
-    /**
-     * Use Jackson for message serialisation so EvalJob records become JSON
-     * on the wire. Both the publisher and the worker share this convention —
-     * the worker's RabbitConfig must use the same converter to deserialise.
-     */
     @Bean
     public MessageConverter messageConverter() {
         return new Jackson2JsonMessageConverter();
-    }
-
-    @Bean
-    public RabbitTemplate rabbitTemplate(ConnectionFactory cf) {
-        RabbitTemplate t = new RabbitTemplate(cf);
-        t.setMessageConverter(messageConverter());
-        return t;
     }
 }
