@@ -27,17 +27,15 @@ export function useCanvasCollab(
 
   // Keep newest callbacks without reconnecting the socket every render.
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
-
-  useEffect(() => {
-    setUsers([userId]);
-    setCursors(new Map());
-  }, [canvasId, userId]);
 
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:8080/ws");
 
     ws.onopen = () => {
+      // Reset local collab state when a fresh socket session is established.
+      setUsers([userId]);
+      setCursors(new Map());
+
       // Assign only when open so stale constructing sockets cannot clobber ref.
       wsRef.current = ws;
       ws.send(JSON.stringify({ type: "join", canvasId, userId }));
