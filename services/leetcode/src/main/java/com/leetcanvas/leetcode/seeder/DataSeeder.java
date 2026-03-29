@@ -50,11 +50,8 @@ public class DataSeeder implements ApplicationRunner {
     @Value("${leetcode.seeder.json-path}")
     private String jsonPath;
 
-    @Value("${leetcode.seeder.train-path:classpath:train.jsonl}")
-    private String trainPath;
-
-    @Value("${leetcode.seeder.test-path:classpath:test.jsonl}")
-    private String testPath;
+    @Value("${leetcode.seeder.dataset-path:classpath:test-cases.jsonl}")
+    private String datasetPath;
 
     private final ProblemRepository problemRepository;
     private final TagRepository tagRepository;
@@ -99,7 +96,7 @@ public class DataSeeder implements ApplicationRunner {
 
         // ── Phase 0: load source datasets (fail fast if anything is malformed) ──
         List<RawItem> officialItems = loadOfficialItems();
-        Map<String, RawQuestion> testCasesByTaskId = loadTestCaseDatasets();
+        Map<String, RawQuestion> testCasesByTaskId = loadTestCaseDataset();
 
         // ── Phase 1: seed tags ───────────────────────────────────────────────
         Map<String, Integer> tagNameToId = seedTags(officialItems);
@@ -121,23 +118,18 @@ public class DataSeeder implements ApplicationRunner {
         return officialItems;
     }
 
-    private Map<String, RawQuestion> loadTestCaseDatasets() throws Exception {
-        // JSONL dataset with test cases (train + test files deduplicated by task_id).
-        // test file overwrites train entry if both contain the same task_id.
+    private Map<String, RawQuestion> loadTestCaseDataset() throws Exception {
+        // JSONL dataset with test cases.
+        // If duplicated task_id rows exist, later rows overwrite earlier rows.
         Map<String, RawQuestion> testCasesByTaskId = new LinkedHashMap<>();
 
-        Resource trainResource = ctx.getResource(trainPath);
-        log.info("Loading train dataset from {}", trainResource.getDescription());
-        loadJsonlDataset(trainResource, testCasesByTaskId);
-        log.info("Loaded {} problems from train dataset", testCasesByTaskId.size());
-
-        Resource testResource = ctx.getResource(testPath);
-        log.info("Loading test dataset from {}", testResource.getDescription());
-        loadJsonlDataset(testResource, testCasesByTaskId);
-        log.info("Total {} problems in merged dataset", testCasesByTaskId.size());
+        Resource datasetResource = ctx.getResource(datasetPath);
+        log.info("Loading test-case dataset from {}", datasetResource.getDescription());
+        loadJsonlDataset(datasetResource, testCasesByTaskId);
+        log.info("Loaded {} problems from dataset", testCasesByTaskId.size());
 
         if (testCasesByTaskId.isEmpty()) {
-            throw new IllegalStateException("No test cases loaded from dataset files. Seeder aborting.");
+            throw new IllegalStateException("No test cases loaded from dataset file. Seeder aborting.");
         }
 
         return testCasesByTaskId;

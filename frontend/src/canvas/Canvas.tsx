@@ -6,6 +6,7 @@ import {
   createNoteNode,
   createProblemNode,
   createCodeNode,
+  createTestResultsNode,
 } from "../shared/nodes";
 import type { CanvasOutboundEvent } from "../shared/events";
 import { useCanvasCrdt } from "../shared/crdt/useCanvasCrdt";
@@ -32,6 +33,8 @@ function spawnNode(type: NodeType, x: number, y: number): CanvasNode {
       return createProblemNode(x, y);
     case "code":
       return createCodeNode(x, y);
+    case "test-results":
+      return createTestResultsNode(x, y);
   }
 }
 
@@ -215,9 +218,9 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   );
 
   const handleSpawn = useCallback(
-    (type: NodeType, fromNodeId?: string) => {
+    (type: NodeType, fromNodeId?: string): string | undefined => {
       const el = viewportRef.current;
-      if (!el) return;
+      if (!el) return undefined;
       const rect = el.getBoundingClientRect();
       const world = screenToWorld(
         rect.width / 2,
@@ -244,6 +247,8 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
         setEdges((prev) => [...prev, edge]);
         send({ type: "edge_create", edge });
       }
+
+      return node.id;
     },
     [transformRef, send, selectNode],
   );
@@ -280,6 +285,8 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
           <NodeRenderer
             key={node.id}
             node={node}
+            nodes={nodes}
+            edges={edges}
             onPointerDown={onNodePointerDown}
             onUpdate={updateNode}
             onSpawn={handleSpawn}

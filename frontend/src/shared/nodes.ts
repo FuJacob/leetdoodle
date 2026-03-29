@@ -71,10 +71,47 @@ export interface CodeNode extends CanvasNodeBase {
 }
 
 // ---------------------------------------------------------------------------
+// Test results node (RUN-only for now)
+// ---------------------------------------------------------------------------
+
+export interface TestResultsCase {
+  input: string;
+  output: string | null;
+  expected: string | null;
+  passed: boolean;
+  error?: string | null;
+}
+
+export type TestResultsMode = 'testcase' | 'result';
+
+export type TestResultsRunState =
+  | 'idle'
+  | 'running'
+  | 'accepted'
+  | 'wrong_answer'
+  | 'runtime_error';
+
+export interface TestResultsData {
+  mode: TestResultsMode;
+  runState: TestResultsRunState;
+  runtimeMs: number | null;
+  selectedCaseIndex: number;
+  cases: TestResultsCase[];
+  // Used by runtime-error view.
+  errorMessage?: string;
+  lastExecutedInput?: string;
+}
+
+export interface TestResultsNode extends CanvasNodeBase {
+  type: 'test-results';
+  data: TestResultsData;
+}
+
+// ---------------------------------------------------------------------------
 // Union + helpers
 // ---------------------------------------------------------------------------
 
-export type CanvasNode = NoteNode | ProblemNode | CodeNode;
+export type CanvasNode = NoteNode | ProblemNode | CodeNode | TestResultsNode;
 export type NodeType = CanvasNode['type'];
 
 export interface Edge {
@@ -116,5 +153,23 @@ export function createCodeNode(x: number, y: number): CodeNode {
     width: 400,
     height: 250,
     data: { content: '', language: 'javascript' },
+  };
+}
+
+export function createTestResultsNode(x: number, y: number): TestResultsNode {
+  return {
+    id: String(nextId++),
+    type: 'test-results',
+    x,
+    y,
+    width: 540,
+    height: 420,
+    data: {
+      mode: 'testcase',
+      runState: 'idle',
+      runtimeMs: null,
+      selectedCaseIndex: 0,
+      cases: [],
+    },
   };
 }

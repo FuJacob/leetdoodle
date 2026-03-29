@@ -2,7 +2,7 @@ import fs from "fs";
 
 // read JSON and parse it into an array of objects
 const questions = JSON.parse(
-  fs.readFileSync("./leetcode_questions.json", "utf8"),
+  fs.readFileSync("./data/seed/official-questions.json", "utf8"),
 );
 
 let allSame = true;
