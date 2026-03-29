@@ -209,7 +209,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   const onPointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       panPointerUp(e);
-      dragPointerUp(e);
+      dragPointerUp();
     },
     [panPointerUp, dragPointerUp],
   );

@@ -1,6 +1,6 @@
-import { useCallback, useRef } from 'react';
-import type { Transform } from '../types';
-import type { CanvasNode } from '../../shared/nodes';
+import { useCallback, useRef } from "react";
+import type { Transform } from "../types";
+import type { CanvasNode } from "../../shared/nodes";
 
 interface DragState {
   active: boolean;
@@ -62,13 +62,10 @@ export function useNodeDrag(
   );
 
   // Called by the viewport's onPointerUp (alongside pan handler).
-  const onPointerUp = useCallback(
-    (_e: React.PointerEvent<HTMLDivElement>) => {
-      dragRef.current.active = false;
-      draggingIdRef.current = null;
-    },
-    [],
-  );
+  const onPointerUp = useCallback(() => {
+    dragRef.current.active = false;
+    draggingIdRef.current = null;
+  }, []);
 
   return { onNodePointerDown, onPointerMove, onPointerUp };
 }
