@@ -1,0 +1,1 @@
+mvn spring-boot:run 2>&1 | rg "APPLICATION FAILED TO START|Caused by|Description:|Action:"

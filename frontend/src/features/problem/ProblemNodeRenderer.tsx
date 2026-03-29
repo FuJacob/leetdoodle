@@ -128,8 +128,8 @@ export function ProblemNodeRenderer({
 
   return (
     <div
-      className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
-      style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
+      className={`${base} cursor-grab active:cursor-grabbing`}
+      style={{ left: node.x, top: node.y, width: node.width }}
       onPointerDown={(e) => onPointerDown(e, node)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

@@ -24,11 +24,13 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * WHAT IS A WEBSOCKET SESSION?
  * When a client connects, Spring creates a WebSocketSession representing that
- * connection. It wraps the underlying TCP socket and lets us send messages back.
+ * connection. It wraps the underlying TCP socket and lets us send messages
+ * back.
  * Think of it like a phone call — the session IS the open line with one client.
  *
  * THE FAN-OUT PATTERN:
- * "Fan-out" means 1 message in → N messages out. When user A moves their cursor,
+ * "Fan-out" means 1 message in → N messages out. When user A moves their
+ * cursor,
  * we receive one message and relay it to every other user in that canvas.
  * This is the core operation of real-time collaboration (Figma, Google Docs,
  * multiplayer games all work this way at their foundation).
@@ -36,12 +38,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * WHY THIS SERVER IS STATEFUL (and why that matters for scaling):
  * Normal REST APIs are stateless — each HTTP request stands alone, the server
  * remembers nothing between requests. This WebSocket server is STATEFUL — it
- * continuously tracks which sessions are in which canvas room. This is what makes
- * real-time servers harder to scale: if you run two instances, user A on instance 1
+ * continuously tracks which sessions are in which canvas room. This is what
+ * makes
+ * real-time servers harder to scale: if you run two instances, user A on
+ * instance 1
  * and user B on instance 2 would never see each other. The fix is an external
- * shared broker (Redis pub/sub, Kafka) — we'll tackle that when we add more services.
+ * shared broker (Redis pub/sub, Kafka) — we'll tackle that when we add more
+ * services.
  */
-@Component // marks this as a Spring-managed bean; Spring creates and injects it where needed
+@Component // marks this as a Spring-managed bean; Spring creates and injects it where
+           // needed
 public class CanvasWebSocketHandler extends TextWebSocketHandler {
 
     /**
@@ -104,8 +110,10 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     /**
      * Jackson's ObjectMapper converts Java objects ↔ JSON strings.
      *
-     * Injected via constructor (Dependency Injection) rather than `new ObjectMapper()`
-     * because Spring Boot auto-configures one with the right settings, it's expensive
+     * Injected via constructor (Dependency Injection) rather than `new
+     * ObjectMapper()`
+     * because Spring Boot auto-configures one with the right settings, it's
+     * expensive
      * to create, and tests can swap it out without changing this class.
      */
     private final ObjectMapper objectMapper;
@@ -115,15 +123,20 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Called once per incoming message. Every message from every client arrives here.
+     * Called once per incoming message. Every message from every client arrives
+     * here.
      *
-     * We use a TYPE DISCRIMINATOR pattern: parse just enough JSON to read the "type"
-     * field, then route to the right handler. This same idea appears in Kafka consumers,
+     * We use a TYPE DISCRIMINATOR pattern: parse just enough JSON to read the
+     * "type"
+     * field, then route to the right handler. This same idea appears in Kafka
+     * consumers,
      * gRPC service dispatch, actor systems, and event buses.
      *
      * PURE RELAY ARCHITECTURE:
-     * For canvas events (node_create, node_move, etc.), the server doesn't interpret
-     * the payload — it just broadcasts the raw JSON to all peers in the same canvas.
+     * For canvas events (node_create, node_move, etc.), the server doesn't
+     * interpret
+     * the payload — it just broadcasts the raw JSON to all peers in the same
+     * canvas.
      * This keeps the server simple and decoupled from the frontend's data model.
      * The client is the source of truth; the server is just a message router.
      */
@@ -139,7 +152,8 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
 
         switch (type) {
             // Join is special: it registers the session in a canvas room
-            case "join" -> handleJoin(session, objectMapper.treeToValue(root, ImmutableJoinMessage.class));
+            case "join" ->
+                handleJoin(session, objectMapper.treeToValue(root, ImmutableJoinMessage.class), message.getPayload());
 
             // CRDT ops are logged + deduplicated + fanned out.
             // This gives us reconnection replay without changing the relay model.
@@ -166,18 +180,21 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * be silently lost. This is a race condition — a class of bug that only appears
      * under concurrent load and is notoriously hard to reproduce in testing.
      */
-    private void handleJoin(WebSocketSession session, JoinMessage msg) {
+    private void handleJoin(WebSocketSession session, JoinMessage msg, String rawPayload) throws Exception {
         System.out.println("handleJoin is being called");
         canvasSessions
                 .computeIfAbsent(msg.canvasId(), k -> ConcurrentHashMap.newKeySet())
                 .add(session);
 
-        // Record reverse mappings so afterConnectionClosed can clean up and broadcast user_leave
+        // Record reverse mappings so afterConnectionClosed can clean up and broadcast
+        // user_leave
         sessionToCanvas.put(session.getId(), msg.canvasId());
         sessionToUserId.put(session.getId(), msg.userId());
 
         System.out.printf("User %s joined canvas %s (total sessions in canvas: %d)%n",
-            msg.userId(), msg.canvasId(), canvasSessions.get(msg.canvasId()).size());
+                msg.userId(), msg.canvasId(), canvasSessions.get(msg.canvasId()).size());
+
+        broadcastToCanvas(session, rawPayload);
     }
 
     /**
@@ -236,17 +253,17 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      *
      * Request payload shape:
      * {
-     *   "type": "sync_request",
-     *   "canvasId": "...",
-     *   "docId": "...",
-     *   "stateVector": { "actorA": 12, "actorB": 4 }
+     * "type": "sync_request",
+     * "canvasId": "...",
+     * "docId": "...",
+     * "stateVector": { "actorA": 12, "actorB": 4 }
      * }
      *
      * Response payload shape:
      * {
-     *   "type": "sync_response",
-     *   "docId": "...",
-     *   "ops": [ ... ]
+     * "type": "sync_response",
+     * "docId": "...",
+     * "ops": [ ... ]
      * }
      */
     private void handleSyncRequest(WebSocketSession session, JsonNode root) throws Exception {
@@ -267,7 +284,8 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             for (JsonNode op : log) {
                 String actor = readText(op, "actor");
                 Integer seq = readInt(op, "seq");
-                if (actor == null || seq == null) continue;
+                if (actor == null || seq == null)
+                    continue;
 
                 int seenSeq = -1;
                 if (vectorNode != null && vectorNode.has(actor)) {
@@ -295,7 +313,8 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Generic broadcast: forwards a message to all OTHER sessions in the same canvas.
+     * Generic broadcast: forwards a message to all OTHER sessions in the same
+     * canvas.
      * This is the fan-out: 1 message in → (N-1) messages out.
      *
      * PURE RELAY:
@@ -325,8 +344,10 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         TextMessage outbound = new TextMessage(payload);
 
         for (WebSocketSession peer : canvasSessions.getOrDefault(canvasId, Set.of())) {
-            if (!peer.isOpen()) continue;                        // skip dead sessions
-            if (peer.getId().equals(session.getId())) continue;  // don't echo to sender
+            if (!peer.isOpen())
+                continue; // skip dead sessions
+            if (peer.getId().equals(session.getId()))
+                continue; // don't echo to sender
 
             // WHY synchronized(peer)?
             // WebSocketSession.sendMessage() is NOT thread-safe. If two threads call
@@ -345,26 +366,32 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     private String opKey(JsonNode op) {
         String actor = readText(op, "actor");
         Integer seq = readInt(op, "seq");
-        if (actor == null || seq == null) return null;
+        if (actor == null || seq == null)
+            return null;
         return actor + ":" + seq;
     }
 
     private String readText(JsonNode node, String field) {
-        if (node == null) return null;
+        if (node == null)
+            return null;
         JsonNode value = node.get(field);
-        if (value == null || value.isNull()) return null;
+        if (value == null || value.isNull())
+            return null;
         return value.asText();
     }
 
     private Integer readInt(JsonNode node, String field) {
-        if (node == null) return null;
+        if (node == null)
+            return null;
         JsonNode value = node.get(field);
-        if (value == null || value.isNull()) return null;
+        if (value == null || value.isNull())
+            return null;
         return value.asInt();
     }
 
     /**
-     * Called automatically when a client disconnects — tab close, network drop, etc.
+     * Called automatically when a client disconnects — tab close, network drop,
+     * etc.
      *
      * CLEANUP IS NON-NEGOTIABLE in stateful servers. Without it:
      * - canvasSessions grows forever → memory leak
@@ -378,18 +405,21 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         // remove() returns the old value atomically, giving us the canvasId to clean up
         String canvasId = sessionToCanvas.remove(session.getId());
         String userId = sessionToUserId.remove(session.getId());
-        if (canvasId == null) return; // session never joined, nothing to clean up
+        if (canvasId == null)
+            return; // session never joined, nothing to clean up
 
         Set<WebSocketSession> sessions = canvasSessions.get(canvasId);
         if (sessions != null) {
             sessions.remove(session);
 
-            // Broadcast user_leave to remaining peers so they can clean up cursors/selections
+            // Broadcast user_leave to remaining peers so they can clean up
+            // cursors/selections
             if (userId != null && !sessions.isEmpty()) {
                 String payload = String.format("{\"type\":\"user_leave\",\"userId\":\"%s\"}", userId);
                 TextMessage outbound = new TextMessage(payload);
                 for (WebSocketSession peer : sessions) {
-                    if (!peer.isOpen()) continue;
+                    if (!peer.isOpen())
+                        continue;
                     try {
                         synchronized (peer) {
                             peer.sendMessage(outbound);

@@ -54,7 +54,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   });
 
   // Collab hook with event handlers for remote updates
-  const { cursors, send, onPointerMove: collabPointerMove } = useCanvasCollab(
+  const { cursors, users, send, onPointerMove: collabPointerMove } = useCanvasCollab(
     canvasId,
     userId,
     viewportRef,
@@ -235,7 +235,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      <SpawnPanel onSpawn={handleSpawn} />
+      <SpawnPanel onSpawn={handleSpawn} users={users} localUserId={userId} />
       <CursorOverlay cursors={cursors} transform={transform} />
       <EdgesOverlay nodes={nodes} edges={edges} transform={transform} />
       <SelectionOverlay

@@ -1,6 +1,8 @@
 package com.leetcanvas.leetcode.seeder;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
@@ -25,31 +27,37 @@ record RawData(RawQuestion question) {}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 record RawQuestion(
-    // In the JSON, these IDs are strings ("1", "2") even though they're numbers.
-    // We parse them to int in the seeder via Integer.parseInt().
+    // Old API format fields (from LeetCode's official API)
+    // Supports both "questionId" (official payload) and "question_id" (JSONL dataset).
+    @JsonAlias("question_id")
     String questionId,
-    String questionFrontendId,
 
     String title,
     String content,
     Integer likes,
     Integer dislikes,
 
-    // stats and similarQuestions are JSON strings (the LeetCode API embeds
-    // JSON inside a JSON string value — double-encoded). We store them as-is.
     String stats,
     String similarQuestions,
 
     String categoryTitle,
     List<String> hints,
     List<RawTag> topicTags,
-    Object companyTags,         // always null in this dataset
+    Object companyTags,
     String difficulty,
     Boolean isPaidOnly,
     RawSolution solution,
     Boolean hasSolution,
     Boolean hasVideoSolution,
-    String url
+    String url,
+
+    // New dataset format fields (from train/test JSONL files)
+    @JsonProperty("task_id")
+    String taskId,
+    @JsonProperty("problem_description")
+    String problemDescription,
+    @JsonProperty("input_output")
+    List<RawInputOutput> inputOutput  // test cases
 ) {}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -57,3 +65,6 @@ record RawTag(String name) {}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 record RawSolution(Boolean canSeeDetail, String content) {}
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+record RawInputOutput(String input, String output) {}

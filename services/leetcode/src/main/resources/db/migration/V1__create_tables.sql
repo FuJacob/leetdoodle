@@ -20,12 +20,8 @@ CREATE TABLE tags (
 CREATE TABLE problems (
     id                  SERIAL      PRIMARY KEY,
 
-    -- LeetCode has two IDs:
-    --   question_id    — internal DB identifier (not always sequential)
-    --   frontend_id    — the number shown to users ("Problem #1 - Two Sum")
-    -- Both are unique and we'll look up by frontend_id in the API.
+    -- question_id is the LeetCode internal identifier, unique across all problems
     question_id         INTEGER     NOT NULL UNIQUE,
-    frontend_id         INTEGER     NOT NULL UNIQUE,
 
     title               TEXT        NOT NULL,
     content             TEXT,                           -- HTML problem body

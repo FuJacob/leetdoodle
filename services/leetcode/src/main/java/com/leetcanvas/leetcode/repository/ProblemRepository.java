@@ -91,12 +91,12 @@ public class ProblemRepository {
 
         Integer id = jdbc.queryForObject("""
             INSERT INTO problems (
-                question_id, frontend_id, slug, title, content, difficulty,
+                question_id, slug, title, content, difficulty,
                 likes, dislikes, category, is_paid_only,
                 has_solution, has_video_solution, url, solution_content,
                 hints, similar_questions, stats, company_tags
             ) VALUES (
-                :questionId, :frontendId, :slug, :title, :content, :difficulty,
+                :questionId, :slug, :title, :content, :difficulty,
                 :likes, :dislikes, :category, :isPaidOnly,
                 :hasSolution, :hasVideoSolution, :url, :solutionContent,
                 CAST(:hints AS jsonb), :similarQuestions, :stats, :companyTags
@@ -104,7 +104,6 @@ public class ProblemRepository {
             """,
             new MapSqlParameterSource()
                 .addValue("questionId",       p.questionId())
-                .addValue("frontendId",       p.frontendId())
                 .addValue("slug",             p.slug())
                 .addValue("title",            p.title())
                 .addValue("content",          p.content())
@@ -183,7 +182,6 @@ public class ProblemRepository {
         return ImmutableProblem.builder()
             .id(rs.getInt("id"))
             .questionId(rs.getInt("question_id"))
-            .frontendId(rs.getInt("frontend_id"))
             .slug(rs.getString("slug"))
             .title(rs.getString("title"))
             .content(rs.getString("content"))

@@ -22,6 +22,8 @@ export type CanvasOutboundEvent =
  * Inbound events this client may receive from the server.
  */
 export type CanvasInboundEvent =
+  | { type: "presence_snapshot"; userIds: string[] }
+  | { type: "user_join"; userId: string }
   | { type: "cursor_move"; userId: string; x: number; y: number }
   | { type: "node_create"; userId: string; node: CanvasNode }
   | { type: "node_move"; userId: string; nodeId: string; x: number; y: number }
@@ -42,6 +44,7 @@ export interface CanvasEventHandlers {
   onEdgeCreate?: (edge: Edge) => void;
   onEdgeDelete?: (edgeId: string) => void;
   onNodeSelect?: (userId: string, nodeId: string | null) => void;
+  onUserJoin?: (userId: string) => void;
   onUserLeave?: (userId: string) => void;
   onCrdtOp?: (docId: string, op: CrdtOp, senderUserId: string) => void;
   onSyncResponse?: (docId: string, ops: CrdtOp[]) => void;

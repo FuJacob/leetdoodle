@@ -13,7 +13,6 @@ import java.util.List;
 public interface Problem {
     @Nullable Integer id();
     int questionId();
-    int frontendId();
     String title();
     @Nullable String content();
     String difficulty();

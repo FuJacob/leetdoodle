@@ -21,12 +21,18 @@ export function useCanvasCollab(
   handlers: CanvasEventHandlers = {},
 ) {
   const [cursors, setCursors] = useState<Map<string, RemoteCursor>>(new Map());
+  const [users, setUsers] = useState<string[]>(() => [userId]);
   const wsRef = useRef<WebSocket | null>(null);
   const lastCursorSentAt = useRef(0);
 
   // Keep newest callbacks without reconnecting the socket every render.
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
+
+  useEffect(() => {
+    setUsers([userId]);
+    setCursors(new Map());
+  }, [canvasId, userId]);
 
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:8080/ws");
@@ -51,6 +57,32 @@ export function useCanvasCollab(
       if ("userId" in msg && msg.userId === userId) return;
 
       switch (msg.type) {
+        case "presence_snapshot":
+          setUsers(() => {
+            const next = new Set<string>([userId]);
+            console.log(msg.userIds);
+            for (const id of msg.userIds) {
+              next.add(id);
+            }
+            const ordered = Array.from(next)
+              .filter((id) => id !== userId)
+              .sort();
+            return [userId, ...ordered];
+          });
+          break;
+
+        case "user_join":
+          handlersRef.current.onUserJoin?.(msg.userId);
+          setUsers((prev) => {
+            if (prev.includes(msg.userId)) return prev;
+            return [...prev, msg.userId].sort((a, b) => {
+              if (a === userId) return -1;
+              if (b === userId) return 1;
+              return a.localeCompare(b);
+            });
+          });
+          break;
+
         case "cursor_move":
           setCursors((prev) =>
             new Map(prev).set(msg.userId, {
@@ -90,6 +122,7 @@ export function useCanvasCollab(
           break;
 
         case "user_leave":
+          setUsers((prev) => prev.filter((id) => id !== msg.userId));
           setCursors((prev) => {
             const next = new Map(prev);
             next.delete(msg.userId);
@@ -111,6 +144,9 @@ export function useCanvasCollab(
     ws.onclose = () => {
       // StrictMode-safe: only clear if this exact socket is still current.
       if (wsRef.current === ws) wsRef.current = null;
+
+      setUsers([userId]);
+      setCursors(new Map());
     };
 
     ws.onerror = (err) => {
@@ -154,5 +190,5 @@ export function useCanvasCollab(
     [userId, viewportRef, transformRef, send],
   );
 
-  return { cursors, send, onPointerMove };
+  return { cursors, users, send, onPointerMove };
 }
