@@ -14,3 +14,6 @@ Use repo-root scripts:
 - `./scripts/dev-down.sh` — stop and remove infra containers
 - `./scripts/dev-logs.sh` — follow infra logs
 - `./scripts/dev-ps.sh` — list infra container status
+- `./scripts/backend-up.sh` — start infra + all backend Spring services
+- `./scripts/backend-down.sh` — stop backend Spring services + infra
+  - optional: `./scripts/backend-down.sh --keep-infra`
