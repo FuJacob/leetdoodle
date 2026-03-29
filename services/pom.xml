@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.leetcanvas</groupId>
+  <artifactId>services</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <!--
+    packaging=pom means this module produces no jar — it's a pure build
+    coordinator. Maven won't try to compile or package anything here.
+  -->
+  <packaging>pom</packaging>
+
+  <modules>
+    <module>collab</module>
+    <module>leetcode</module>
+  </modules>
+
+  <properties>
+    <spring-boot.version>3.4.0</spring-boot.version>
+    <immutables.version>2.10.1</immutables.version>
+    <jsr305.version>3.0.2</jsr305.version>
+    <!--
+      maven.compiler.release sets source, target, and bootclasspath
+      to the same version in one property — preferred over the older
+      source/target pair because it also validates against the JDK API.
+    -->
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <!--
+        BOM (Bill of Materials) import. This pulls in Spring Boot's entire
+        dependency version table without inheriting its parent POM.
+        type=pom + scope=import is the standard Maven BOM pattern — it merges
+        the remote <dependencyManagement> block into ours at build time.
+        Children can now declare spring-boot-starter-web etc. with no version;
+        Maven resolves it from here.
+      -->
+      <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-dependencies</artifactId>
+        <version>${spring-boot.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+
+      <!-- Version pinned here; children declare without version -->
+      <dependency>
+        <groupId>org.immutables</groupId>
+        <artifactId>value</artifactId>
+        <version>${immutables.version}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>jsr305</artifactId>
+        <version>${jsr305.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <!--
+        pluginManagement defines configuration that children inherit when they
+        declare a plugin — it does NOT activate the plugin itself. A child still
+        needs to list the plugin in its own <build><plugins> to use it.
+      -->
+      <plugins>
+        <!--
+          Register Immutables as an annotation processor path.
+          This block is identical in every service — centralising it here
+          means adding a new service just needs to declare the plugin with
+          no extra config.
+        -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.13.0</version>
+          <configuration>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>org.immutables</groupId>
+                <artifactId>value</artifactId>
+                <version>${immutables.version}</version>
+              </path>
+            </annotationProcessorPaths>
+          </configuration>
+        </plugin>
+
+        <!--
+          Repackages the jar into a self-contained executable ("fat jar")
+          during the package phase. Without spring-boot-starter-parent,
+          we lose its auto-configuration of this plugin, so we bind the
+          repackage goal explicitly here.
+        -->
+        <plugin>
+          <groupId>org.springframework.boot</groupId>
+          <artifactId>spring-boot-maven-plugin</artifactId>
+          <version>${spring-boot.version}</version>
+          <executions>
+            <execution>
+              <goals>
+                <goal>repackage</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

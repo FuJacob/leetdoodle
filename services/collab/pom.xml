@@ -4,60 +4,51 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.leetcanvas</groupId>
-  <artifactId>collab</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
-  <packaging>jar</packaging>
-
   <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.0</version>
-    <relativePath/>
+    <groupId>com.leetcanvas</groupId>
+    <artifactId>services</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <properties>
-    <java.version>21</java.version>
-  </properties>
+  <!--
+    groupId and version are inherited from the parent — only artifactId
+    needs to be declared here since it uniquely identifies this module.
+  -->
+  <artifactId>collab</artifactId>
+  <packaging>jar</packaging>
 
   <dependencies>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-websocket</artifactId>
+      <!-- no version — resolved from spring-boot-dependencies BOM -->
     </dependency>
 
-    <!-- Immutables annotation processor -->
     <dependency>
       <groupId>org.immutables</groupId>
       <artifactId>value</artifactId>
-      <version>2.10.1</version>
-      <scope>provided</scope>
+      <!-- no version — resolved from parent dependencyManagement -->
     </dependency>
+
+
+    <dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-devtools</artifactId>
+    <scope>runtime</scope>
+    <optional>true</optional>
+</dependency>
+
+
   </dependencies>
 
   <build>
     <plugins>
-      <!--
-        Explicitly register Immutables as an annotation processor.
-        Newer Maven versions don't reliably pick up processors from the
-        provided-scope classpath — annotationProcessorPaths is the safe way.
-        The processor generates ImmutableFoo.java from @Value.Immutable interfaces
-        during the compile phase, before javac compiles the rest of the code.
-      -->
+      <!-- config inherited from parent pluginManagement -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <annotationProcessorPaths>
-            <path>
-              <groupId>org.immutables</groupId>
-              <artifactId>value</artifactId>
-              <version>2.10.1</version>
-            </path>
-          </annotationProcessorPaths>
-        </configuration>
       </plugin>
-
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
