@@ -1,6 +1,7 @@
 package com.leetcanvas.leetcode.controller;
 
 import com.leetcanvas.leetcode.model.Problem;
+import com.leetcanvas.leetcode.model.TestCase;
 import com.leetcanvas.leetcode.service.ProblemService;
 import org.springframework.web.bind.annotation.*;
 
@@ -49,5 +50,11 @@ public class ProblemController {
     @GetMapping("/slug/{slug}")
     public Problem getBySlug(@PathVariable String slug) {
         return problemService.getBySlug(slug);
+    }
+
+    /** GET /api/problems/{id}/test-cases — used by the worker to load test inputs */
+    @GetMapping("/{id}/test-cases")
+    public List<TestCase> getTestCases(@PathVariable int id) {
+        return problemService.getTestCases(id);
     }
 }

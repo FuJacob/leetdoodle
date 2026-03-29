@@ -7,11 +7,25 @@ services:
       POSTGRES_PASSWORD: leetcanvas
     ports:
       - "5432:5432"
-    volumes:  
+    volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U leetcanvas"]
       interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: leetcanvas
+      RABBITMQ_DEFAULT_PASS: leetcanvas
+    ports:
+      - "5672:5672"    # AMQP — services connect here
+      - "15672:15672"  # Management UI — http://localhost:15672
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
       timeout: 5s
       retries: 5
 

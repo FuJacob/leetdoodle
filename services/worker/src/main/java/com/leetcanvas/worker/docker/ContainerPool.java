@@ -1,0 +1,152 @@
+package com.leetcanvas.worker.docker;
+
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
+import com.github.dockerjava.core.DockerClientImpl;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.net.URI;
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.*;
+
+/**
+ * Maintains a pool of pre-warmed Docker containers per language.
+ *
+ * WHY PRE-WARM?
+ * Cold-starting a container (docker run) takes ~1-2 seconds: image layer
+ * decompression, namespace setup, process init. At our scale that's fine,
+ * but pre-warming eliminates that latency entirely — a warm container just
+ * needs a docker exec to run code, which is ~50ms.
+ *
+ * POOL DESIGN — single-use containers:
+ * Each container is used exactly once, then destroyed. This gives us
+ * strong isolation: code from submission A can't pollute the filesystem,
+ * environment, or process state seen by submission B.
+ * After destruction we immediately spin up a replacement to refill the pool.
+ *
+ * RESOURCE LIMITS:
+ * Each container is created with CPU and memory caps so a runaway submission
+ * can't starve the host or other containers.
+ */
+@Component
+public class ContainerPool {
+
+    private static final Logger log = LoggerFactory.getLogger(ContainerPool.class);
+
+    // Language → Docker image mapping
+    private static final Map<String, String> IMAGES = Map.of(
+        "python",     "python:3.12-alpine",
+        "javascript", "node:20-alpine"
+    );
+
+    @Value("${worker.pool.size:2}")
+    private int poolSize;
+
+    private DockerClient docker;
+
+    // One blocking queue per language — acts as the pool
+    private final Map<String, BlockingQueue<String>> pools = new ConcurrentHashMap<>();
+
+    // Background thread pool for async container replacement
+    private final ExecutorService refillExecutor = Executors.newCachedThreadPool();
+
+    @PostConstruct
+    public void init() {
+        docker = DockerClientImpl.getInstance(
+            DefaultDockerClientConfig.createDefaultConfigBuilder().build(),
+            new ApacheDockerHttpClient.Builder()
+                .dockerHost(URI.create("unix:///var/run/docker.sock"))
+                .connectionTimeout(Duration.ofSeconds(10))
+                .build()
+        );
+
+        // Pre-warm containers for each supported language
+        for (var entry : IMAGES.entrySet()) {
+            String language = entry.getKey();
+            String image    = entry.getValue();
+            var queue = new LinkedBlockingQueue<String>(poolSize);
+            pools.put(language, queue);
+            for (int i = 0; i < poolSize; i++) {
+                queue.add(createAndStart(language, image));
+            }
+            log.info("Pool ready: {} × {} containers for {}", poolSize, image, language);
+        }
+    }
+
+    /**
+     * Borrow a container for the given language.
+     * Blocks up to 30 seconds if all containers are busy.
+     *
+     * BACK PRESSURE: if the pool is empty (all containers in use), this
+     * blocks the consumer thread. Combined with RabbitMQ prefetch=1, this
+     * means the broker will stop delivering new jobs until a container frees
+     * up — natural rate limiting without a separate throttle.
+     */
+    public String borrow(String language) throws InterruptedException {
+        var queue = pools.get(language);
+        if (queue == null) throw new IllegalArgumentException("Unsupported language: " + language);
+        String containerId = queue.poll(30, TimeUnit.SECONDS);
+        if (containerId == null) throw new RuntimeException("Timed out waiting for a container");
+        return containerId;
+    }
+
+    /**
+     * Destroy a used container and asynchronously spin up a replacement.
+     *
+     * We destroy synchronously (can't reuse a container that ran arbitrary code),
+     * but create the replacement on a background thread so the consumer isn't
+     * blocked waiting for a new container to warm up.
+     */
+    public void release(String language, String containerId) {
+        destroyContainer(containerId);
+        String image = IMAGES.get(language);
+        refillExecutor.submit(() -> {
+            try {
+                pools.get(language).add(createAndStart(language, image));
+                log.debug("Refilled pool for {}", language);
+            } catch (Exception e) {
+                log.error("Failed to refill pool for {}", language, e);
+            }
+        });
+    }
+
+    private String createAndStart(String language, String image) {
+        String id = docker.createContainerCmd(image)
+            .withCmd("sleep", "infinity")  // idle container waiting for exec
+            .withNetworkDisabled(true)      // no outbound network from submitted code
+            .withHostConfig(HostConfig.newHostConfig()
+                .withMemory(256 * 1024 * 1024L) // 256 MB RAM cap
+                .withCpuPeriod(100_000L)
+                .withCpuQuota(50_000L))          // 50% of one CPU core
+            .exec()
+            .getId();
+
+        docker.startContainerCmd(id).exec();
+        log.debug("Started container {} for {}", id.substring(0, 12), language);
+        return id;
+    }
+
+    private void destroyContainer(String id) {
+        try {
+            docker.removeContainerCmd(id).withForce(true).exec();
+        } catch (Exception e) {
+            log.warn("Failed to remove container {}: {}", id.substring(0, 12), e.getMessage());
+        }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        refillExecutor.shutdownNow();
+        pools.values().forEach(queue -> queue.forEach(this::destroyContainer));
+    }
+
+    public DockerClient docker() { return docker; }
+}

@@ -1,7 +1,9 @@
 package com.leetcanvas.leetcode.service;
 
 import com.leetcanvas.leetcode.model.Problem;
+import com.leetcanvas.leetcode.model.TestCase;
 import com.leetcanvas.leetcode.repository.ProblemRepository;
+import com.leetcanvas.leetcode.repository.TestCaseRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -12,9 +14,11 @@ import java.util.List;
 public class ProblemService {
 
     private final ProblemRepository problemRepository;
+    private final TestCaseRepository testCaseRepository;
 
-    public ProblemService(ProblemRepository problemRepository) {
+    public ProblemService(ProblemRepository problemRepository, TestCaseRepository testCaseRepository) {
         this.problemRepository = problemRepository;
+        this.testCaseRepository = testCaseRepository;
     }
 
     public List<Problem> list(String difficulty, String tag, int page, int size) {
@@ -30,5 +34,9 @@ public class ProblemService {
             .orElseThrow(() -> new ResponseStatusException(
                 HttpStatus.NOT_FOUND, "Problem \"" + slug + "\" not found"
             ));
+    }
+
+    public List<TestCase> getTestCases(int problemId) {
+        return testCaseRepository.findByProblemId(problemId);
     }
 }
