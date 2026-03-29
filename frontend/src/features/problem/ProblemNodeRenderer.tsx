@@ -91,14 +91,22 @@ export function ProblemNodeRenderer({
     return (
       <div
         className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
-        style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
+        style={{
+          left: node.x,
+          top: node.y,
+          width: node.width,
+          height: node.height,
+        }}
         onPointerDown={(e) => onPointerDown(e, node)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
         <div className="mb-2 text-xs font-semibold text-zinc-400">Problem</div>
         {/* Stop pointer-down so typing in the input doesn't start a drag */}
-        <div className="flex-1 min-h-0" onPointerDown={(e) => e.stopPropagation()}>
+        <div
+          className="flex-1 min-h-0"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <input
             type="text"
             className="w-full bg-zinc-800 border border-zinc-600 text-xs text-zinc-100 px-2 py-1 outline-none placeholder:text-zinc-500"

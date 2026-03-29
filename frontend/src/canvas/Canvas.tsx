@@ -1,16 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { type CanvasNode, type Edge, type NodeType, createNoteNode, createProblemNode, createCodeNode } from '../shared/nodes';
-import type { CanvasOutboundEvent } from '../shared/events';
-import { useCanvasCrdt } from '../shared/crdt/useCanvasCrdt';
-import { useCanvasTransform } from './hooks/useCanvasTransform';
-import { useNodeDrag } from './hooks/useNodeDrag';
-import { useCanvasCollab } from './hooks/useCanvasCollab';
-import { screenToWorld } from './utils/coordinates';
-import { NodeRenderer } from './NodeRenderer';
-import { CursorOverlay } from './CursorOverlay';
-import { EdgesOverlay } from './EdgesOverlay';
-import { SelectionOverlay } from './SelectionOverlay';
-import { SpawnPanel } from './SpawnPanel';
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type CanvasNode,
+  type Edge,
+  type NodeType,
+  createNoteNode,
+  createProblemNode,
+  createCodeNode,
+} from "../shared/nodes";
+import type { CanvasOutboundEvent } from "../shared/events";
+import { useCanvasCrdt } from "../shared/crdt/useCanvasCrdt";
+import { useCanvasTransform } from "./hooks/useCanvasTransform";
+import { useNodeDrag } from "./hooks/useNodeDrag";
+import { useCanvasCollab } from "./hooks/useCanvasCollab";
+import { screenToWorld } from "./utils/coordinates";
+import { NodeRenderer } from "./NodeRenderer";
+import { CursorOverlay } from "./CursorOverlay";
+import { EdgesOverlay } from "./EdgesOverlay";
+import { SelectionOverlay } from "./SelectionOverlay";
+import { SpawnPanel } from "./SpawnPanel";
 
 interface CanvasProps {
   canvasId: string;
@@ -19,9 +26,12 @@ interface CanvasProps {
 
 function spawnNode(type: NodeType, x: number, y: number): CanvasNode {
   switch (type) {
-    case 'note':    return createNoteNode(x, y);
-    case 'problem': return createProblemNode(x, y);
-    case 'code':    return createCodeNode(x, y);
+    case "note":
+      return createNoteNode(x, y);
+    case "problem":
+      return createProblemNode(x, y);
+    case "code":
+      return createCodeNode(x, y);
   }
 }
 
@@ -30,7 +40,9 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [remoteSelections, setRemoteSelections] = useState<Map<string, string>>(new Map());
+  const [remoteSelections, setRemoteSelections] = useState<Map<string, string>>(
+    new Map(),
+  );
   const sendRef = useRef<((event: CanvasOutboundEvent) => void) | null>(null);
 
   const {
@@ -54,62 +66,65 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   });
 
   // Collab hook with event handlers for remote updates
-  const { cursors, users, send, onPointerMove: collabPointerMove } = useCanvasCollab(
-    canvasId,
-    userId,
-    viewportRef,
-    transformRef,
-    {
-      onNodeCreate: (node) => {
-        setNodes((prev) => [...prev, node]);
-      },
-      onNodeMove: (nodeId, x, y) => {
-        setNodes((prev) =>
-          prev.map((n) => (n.id === nodeId ? { ...n, x, y } : n)),
-        );
-      },
-      onNodeUpdate: (nodeId, patch) => {
-        setNodes((prev) =>
-          prev.map((n) => (n.id === nodeId ? { ...n, ...patch } as CanvasNode : n)),
-        );
-      },
-      onNodeDelete: (nodeId) => {
-        setNodes((prev) => prev.filter((n) => n.id !== nodeId));
-        setEdges((prev) => prev.filter((e) => e.fromNodeId !== nodeId && e.toNodeId !== nodeId));
-        onDeleteCrdtDoc(nodeId);
-      },
-      onEdgeCreate: (edge) => {
-        setEdges((prev) => [...prev, edge]);
-      },
-      onEdgeDelete: (edgeId) => {
-        setEdges((prev) => prev.filter((e) => e.id !== edgeId));
-      },
-      onNodeSelect: (remoteUserId, nodeId) => {
-        setRemoteSelections((prev) => {
-          const next = new Map(prev);
-          if (nodeId === null) {
-            next.delete(remoteUserId);
-          } else {
-            next.set(remoteUserId, nodeId);
-          }
-          return next;
-        });
-      },
-      onUserLeave: (remoteUserId) => {
-        setRemoteSelections((prev) => {
-          const next = new Map(prev);
-          next.delete(remoteUserId);
-          return next;
-        });
-      },
-      onCrdtOp: (docId, op) => {
-        onCrdtOp(docId, op);
-      },
-      onSyncResponse: (docId, ops) => {
-        onSyncResponse(docId, ops);
-      },
+  const {
+    cursors,
+    users,
+    send,
+    onPointerMove: collabPointerMove,
+  } = useCanvasCollab(canvasId, userId, viewportRef, transformRef, {
+    onNodeCreate: (node) => {
+      setNodes((prev) => [...prev, node]);
     },
-  );
+    onNodeMove: (nodeId, x, y) => {
+      setNodes((prev) =>
+        prev.map((n) => (n.id === nodeId ? { ...n, x, y } : n)),
+      );
+    },
+    onNodeUpdate: (nodeId, patch) => {
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === nodeId ? ({ ...n, ...patch } as CanvasNode) : n,
+        ),
+      );
+    },
+    onNodeDelete: (nodeId) => {
+      setNodes((prev) => prev.filter((n) => n.id !== nodeId));
+      setEdges((prev) =>
+        prev.filter((e) => e.fromNodeId !== nodeId && e.toNodeId !== nodeId),
+      );
+      onDeleteCrdtDoc(nodeId);
+    },
+    onEdgeCreate: (edge) => {
+      setEdges((prev) => [...prev, edge]);
+    },
+    onEdgeDelete: (edgeId) => {
+      setEdges((prev) => prev.filter((e) => e.id !== edgeId));
+    },
+    onNodeSelect: (remoteUserId, nodeId) => {
+      setRemoteSelections((prev) => {
+        const next = new Map(prev);
+        if (nodeId === null) {
+          next.delete(remoteUserId);
+        } else {
+          next.set(remoteUserId, nodeId);
+        }
+        return next;
+      });
+    },
+    onUserLeave: (remoteUserId) => {
+      setRemoteSelections((prev) => {
+        const next = new Map(prev);
+        next.delete(remoteUserId);
+        return next;
+      });
+    },
+    onCrdtOp: (docId, op) => {
+      onCrdtOp(docId, op);
+    },
+    onSyncResponse: (docId, ops) => {
+      onSyncResponse(docId, ops);
+    },
+  });
 
   useEffect(() => {
     sendRef.current = send;
@@ -119,9 +134,9 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   const updateNode = useCallback(
     (id: string, patch: Partial<CanvasNode>) => {
       setNodes((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, ...patch } as CanvasNode : n)),
+        prev.map((n) => (n.id === id ? ({ ...n, ...patch } as CanvasNode) : n)),
       );
-      send({ type: 'node_update', nodeId: id, patch });
+      send({ type: "node_update", nodeId: id, patch });
     },
     [send],
   );
@@ -129,10 +144,8 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   // Move node locally + broadcast — called by drag hook
   const moveNode = useCallback(
     (id: string, x: number, y: number) => {
-      setNodes((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, x, y } : n)),
-      );
-      send({ type: 'node_move', nodeId: id, x, y });
+      setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, x, y } : n)));
+      send({ type: "node_move", nodeId: id, x, y });
     },
     [send],
   );
@@ -143,7 +156,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       setNodes((prev) =>
         prev.map((n) => (n.id === id ? { ...n, width, height } : n)),
       );
-      send({ type: 'node_update', nodeId: id, patch: { width, height } });
+      send({ type: "node_update", nodeId: id, patch: { width, height } });
     },
     [send],
   );
@@ -152,7 +165,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   const selectNode = useCallback(
     (nodeId: string | null) => {
       setSelectedNodeId(nodeId);
-      send({ type: 'node_select', userId, nodeId });
+      send({ type: "node_select", userId, nodeId });
     },
     [send, userId],
   );
@@ -206,22 +219,30 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       const el = viewportRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      const world = screenToWorld(rect.width / 2, rect.height / 2, transformRef.current);
+      const world = screenToWorld(
+        rect.width / 2,
+        rect.height / 2,
+        transformRef.current,
+      );
       const node = spawnNode(type, world.x, world.y);
       node.x = world.x - node.width / 2;
       node.y = world.y - node.height / 2;
 
       // Optimistic: apply locally first
       setNodes((prev) => [...prev, node]);
-      send({ type: 'node_create', node });
+      send({ type: "node_create", node });
 
       // Select the newly created node
       selectNode(node.id);
 
       if (fromNodeId) {
-        const edge: Edge = { id: crypto.randomUUID(), fromNodeId, toNodeId: node.id };
+        const edge: Edge = {
+          id: crypto.randomUUID(),
+          fromNodeId,
+          toNodeId: node.id,
+        };
         setEdges((prev) => [...prev, edge]);
-        send({ type: 'edge_create', edge });
+        send({ type: "edge_create", edge });
       }
     },
     [transformRef, send, selectNode],
@@ -249,7 +270,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       <div
         className="absolute left-0 top-0"
         style={{
-          transformOrigin: '0 0',
+          transformOrigin: "0 0",
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.zoom})`,
           width: 0,
           height: 0,

@@ -27,7 +27,12 @@ export type CanvasInboundEvent =
   | { type: "cursor_move"; userId: string; x: number; y: number }
   | { type: "node_create"; userId: string; node: CanvasNode }
   | { type: "node_move"; userId: string; nodeId: string; x: number; y: number }
-  | { type: "node_update"; userId: string; nodeId: string; patch: Partial<CanvasNode> }
+  | {
+      type: "node_update";
+      userId: string;
+      nodeId: string;
+      patch: Partial<CanvasNode>;
+    }
   | { type: "node_delete"; userId: string; nodeId: string }
   | { type: "edge_create"; userId: string; edge: Edge }
   | { type: "edge_delete"; userId: string; edgeId: string }
