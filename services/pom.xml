@@ -99,6 +99,8 @@
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.13.0</version>
           <configuration>
+            <!-- Required by Spring to resolve unnamed controller parameters via reflection -->
+            <parameters>true</parameters>
             <annotationProcessorPaths>
               <path>
                 <groupId>org.immutables</groupId>

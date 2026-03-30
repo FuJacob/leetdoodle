@@ -38,7 +38,7 @@ public class SubmissionController {
 
     /** GET /api/submissions/{id} — poll for status + result */
     @GetMapping("/{id}")
-    public Submission getById(@PathVariable UUID id) {
+    public Submission getById(@PathVariable("id") UUID id) {
         return service.getById(id);
     }
 

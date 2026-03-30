@@ -22,3 +22,10 @@ target/
 
 # Data files — large, not source code
 leetcode_questions.json
+
+
+# Logs
+.logs/
+
+# Runs
+.run/
