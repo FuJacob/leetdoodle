@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -44,11 +43,30 @@ public class EvalRunner {
 
     public record TestCase(String input, String expectedOutput) {}
 
+    /**
+     * Per-case result: every test case produces one of these regardless of outcome.
+     *
+     * WHY ALWAYS RUN ALL CASES (for wrong answers)?
+     * Fail-fast hides how many cases actually passed. Showing every result lets
+     * the user see the full picture — which inputs failed and which didn't.
+     * We still stop early on a hard runtime error or TLE because there's no
+     * meaningful output to report for subsequent cases in those scenarios.
+     *
+     * actual / error are null for cases that were never reached (i.e. the ones
+     * after a runtime error or TLE stopped execution).
+     */
+    public record CaseResult(
+        String  input,
+        String  expected,
+        String  actual,   // null if not executed (stopped due to prior error/TLE)
+        boolean passed,
+        String  error     // null unless this specific case produced a runtime/TLE error
+    ) {}
+
     public record EvalResult(
-        String status,          // ACCEPTED | WRONG_ANSWER | RUNTIME_ERROR | TIME_LIMIT_EXCEEDED
-        int    passed,
-        int    total,
-        String failureDetail    // null on ACCEPTED
+        String           status,       // ACCEPTED | WRONG_ANSWER | RUNTIME_ERROR | TIME_LIMIT_EXCEEDED
+        List<CaseResult> cases,
+        String           errorMessage  // null on ACCEPTED/WRONG_ANSWER; error detail otherwise
     ) {}
 
     /**
@@ -70,30 +88,51 @@ public class EvalRunner {
             String containerId, String language,
             String code, List<TestCase> testCases) throws Exception {
 
-        int passed = 0;
-        for (TestCase tc : testCases) {
+        List<CaseResult> cases = new ArrayList<>();
+
+        for (int i = 0; i < testCases.size(); i++) {
+            TestCase tc  = testCases.get(i);
             String[] cmd = buildCmd(language, code, tc.input());
             ExecResult exec = execInContainer(containerId, cmd);
 
-            if (!exec.timedOut && exec.exitCode == 0) {
-                String actual   = exec.stdout.trim();
-                String expected = tc.expectedOutput().trim();
-                if (actual.equals(expected)) {
-                    passed++;
-                } else {
-                    String detail = "Input: " + tc.input()
-                        + "\nExpected: " + expected
-                        + "\nActual:   " + actual;
-                    return new EvalResult("WRONG_ANSWER", passed, testCases.size(), detail);
-                }
-            } else if (exec.timedOut) {
-                return new EvalResult("TIME_LIMIT_EXCEEDED", passed, testCases.size(),
-                    "Exceeded " + timeoutSeconds + "s limit");
-            } else {
-                return new EvalResult("RUNTIME_ERROR", passed, testCases.size(), exec.stderr);
+            if (exec.timedOut()) {
+                // Hard stop — remaining cases never ran, include them as not-run
+                String msg = "Exceeded " + timeoutSeconds + "s limit";
+                cases.add(new CaseResult(tc.input(), tc.expectedOutput(), null, false, msg));
+                addNotRunCases(cases, testCases, i + 1);
+                return new EvalResult("TIME_LIMIT_EXCEEDED", cases, msg);
             }
+
+            if (exec.exitCode() != 0) {
+                // Process crashed — remaining cases never ran
+                String err = exec.stderr();
+                cases.add(new CaseResult(tc.input(), tc.expectedOutput(), null, false, err));
+                addNotRunCases(cases, testCases, i + 1);
+                return new EvalResult("RUNTIME_ERROR", cases, err);
+            }
+
+            // Process exited cleanly — compare output
+            String actual   = exec.stdout().trim();
+            String expected = tc.expectedOutput().trim();
+            // Wrong answer: record the failure but keep running remaining cases
+            cases.add(new CaseResult(tc.input(), expected, actual, actual.equals(expected), null));
         }
-        return new EvalResult("ACCEPTED", passed, testCases.size(), null);
+
+        boolean allPassed = cases.stream().allMatch(CaseResult::passed);
+        return new EvalResult(allPassed ? "ACCEPTED" : "WRONG_ANSWER", cases, null);
+    }
+
+    /**
+     * Appends placeholder entries for test cases that were never executed.
+     * This happens when a runtime error or TLE stops evaluation mid-run.
+     * The frontend still shows these cases (with null output) so the user
+     * can see the full picture of what was and wasn't tested.
+     */
+    private void addNotRunCases(List<CaseResult> cases, List<TestCase> testCases, int fromIndex) {
+        for (int j = fromIndex; j < testCases.size(); j++) {
+            TestCase tc = testCases.get(j);
+            cases.add(new CaseResult(tc.input(), tc.expectedOutput(), null, false, null));
+        }
     }
 
     /**

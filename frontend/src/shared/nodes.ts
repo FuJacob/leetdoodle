@@ -44,6 +44,7 @@ export type ProblemData =
   | {
       status: 'loaded';
       slug: string;
+      questionId: number;
       title: string;
       difficulty: string;
       content: string;
@@ -89,7 +90,8 @@ export type TestResultsRunState =
   | 'running'
   | 'accepted'
   | 'wrong_answer'
-  | 'runtime_error';
+  | 'runtime_error'
+  | 'time_limit_exceeded';
 
 export interface TestResultsData {
   mode: TestResultsMode;

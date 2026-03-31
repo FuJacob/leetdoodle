@@ -32,7 +32,7 @@ public class SubmissionController {
      */
     @PostMapping
     public Map<String, String> submit(@RequestBody SubmitRequest req) {
-        UUID id = service.submit(req.problemId(), req.userId(), req.language(), req.code());
+        UUID id = service.submit(req.questionId(), req.userId(), req.language(), req.code());
         return Map.of("submissionId", id.toString());
     }
 
@@ -42,5 +42,5 @@ public class SubmissionController {
         return service.getById(id);
     }
 
-    public record SubmitRequest(int problemId, String userId, String language, String code) {}
+    public record SubmitRequest(int questionId, String userId, String language, String code) {}
 }

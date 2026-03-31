@@ -1,108 +1,53 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import type { CanvasNode } from "../shared/nodes";
+import type { CollabUser } from "./hooks/useCanvasCollab";
 import type { Transform } from "./types";
 
 interface Props {
   nodes: CanvasNode[];
   selectedNodeId: string | null;
   remoteSelections: Map<string, string>; // userId → nodeId
+  users: CollabUser[];
   transform: Transform;
   onResize: (nodeId: string, width: number, height: number) => void;
 }
 
-// Colors for remote user selections (cycle through these)
-const SELECTION_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+type Corner = "nw" | "ne" | "sw" | "se";
 
-function getUserColor(userId: string): string {
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) {
-    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return SELECTION_COLORS[Math.abs(hash) % SELECTION_COLORS.length];
-}
+const LOCAL_SELECTION_COLOR = "#3b82f6";
+const REMOTE_SELECTION_FALLBACK_COLOR = "#3b82f6";
 
-// Corner cap component for local selection
-function CornerCap({
-  position,
+function CornerHandle({
+  corner,
   x,
   y,
   onDragStart,
 }: {
-  position: "nw" | "ne" | "sw" | "se";
+  corner: Corner;
   x: number;
   y: number;
-  onDragStart: (e: React.PointerEvent, corner: "nw" | "ne" | "sw" | "se") => void;
+  onDragStart: (e: React.PointerEvent, corner: Corner) => void;
 }) {
-  const size = 12;
-  const thickness = 2;
-
-  // Position offset based on corner
+  const size = 14;
   const style: React.CSSProperties = {
     position: "absolute",
+    left: x - size / 2,
+    top: y - size / 2,
     width: size,
     height: size,
-    cursor:
-      position === "nw" || position === "se" ? "nwse-resize" : "nesw-resize",
+    backgroundColor: "#ffffff",
+    border: `2px solid ${LOCAL_SELECTION_COLOR}`,
+    cursor: corner === "nw" || corner === "se" ? "nwse-resize" : "nesw-resize",
   };
-
-  // Calculate position
-  switch (position) {
-    case "nw":
-      style.left = x - size / 2;
-      style.top = y - size / 2;
-      break;
-    case "ne":
-      style.left = x - size / 2;
-      style.top = y - size / 2;
-      break;
-    case "sw":
-      style.left = x - size / 2;
-      style.top = y - size / 2;
-      break;
-    case "se":
-      style.left = x - size / 2;
-      style.top = y - size / 2;
-      break;
-  }
-
-  // L-shape borders based on corner
-  const borderStyle: React.CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    borderColor: "#3b82f6",
-    borderStyle: "solid",
-    borderWidth: 0,
-  };
-
-  switch (position) {
-    case "nw":
-      borderStyle.borderTopWidth = thickness;
-      borderStyle.borderLeftWidth = thickness;
-      break;
-    case "ne":
-      borderStyle.borderTopWidth = thickness;
-      borderStyle.borderRightWidth = thickness;
-      break;
-    case "sw":
-      borderStyle.borderBottomWidth = thickness;
-      borderStyle.borderLeftWidth = thickness;
-      break;
-    case "se":
-      borderStyle.borderBottomWidth = thickness;
-      borderStyle.borderRightWidth = thickness;
-      break;
-  }
 
   return (
     <div
       style={style}
       onPointerDown={(e) => {
         e.stopPropagation();
-        onDragStart(e, position);
+        onDragStart(e, corner);
       }}
-    >
-      <div style={borderStyle} />
-    </div>
+    />
   );
 }
 
@@ -110,27 +55,31 @@ export function SelectionOverlay({
   nodes,
   selectedNodeId,
   remoteSelections,
+  users,
   transform,
   onResize,
 }: Props) {
   const dragRef = useRef<{
     active: boolean;
-    corner: "nw" | "ne" | "sw" | "se";
+    corner: Corner;
     nodeId: string;
     startX: number;
     startY: number;
     startWidth: number;
     startHeight: number;
-    startNodeX: number;
-    startNodeY: number;
   } | null>(null);
 
+  const usersById = useMemo(
+    () => new Map(users.map((user) => [user.id, user] as const)),
+    [users],
+  );
+
   const selectedNode = selectedNodeId
-    ? nodes.find((n) => n.id === selectedNodeId)
+    ? nodes.find((node) => node.id === selectedNodeId)
     : null;
 
   const handleDragStart = useCallback(
-    (e: React.PointerEvent, corner: "nw" | "ne" | "sw" | "se") => {
+    (e: React.PointerEvent, corner: Corner) => {
       if (!selectedNode) return;
       e.currentTarget.setPointerCapture(e.pointerId);
       dragRef.current = {
@@ -141,8 +90,6 @@ export function SelectionOverlay({
         startY: e.clientY,
         startWidth: selectedNode.width,
         startHeight: selectedNode.height,
-        startNodeX: selectedNode.x,
-        startNodeY: selectedNode.y,
       };
     },
     [selectedNode],
@@ -162,7 +109,6 @@ export function SelectionOverlay({
       let newWidth = drag.startWidth;
       let newHeight = drag.startHeight;
 
-      // Calculate new size based on which corner is being dragged
       switch (drag.corner) {
         case "se":
           newWidth = Math.max(100, drag.startWidth + dx);
@@ -182,6 +128,11 @@ export function SelectionOverlay({
           break;
       }
 
+      // Loaded problem nodes use content-derived height from DOM measurement sync.
+      if (node.type === "problem" && node.data.status === "loaded") {
+        newHeight = node.height;
+      }
+
       onResize(drag.nodeId, newWidth, newHeight);
     },
     [nodes, transform.zoom, onResize],
@@ -197,23 +148,23 @@ export function SelectionOverlay({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      {/* Remote selections — thin border */}
       {Array.from(remoteSelections.entries()).map(([remoteUserId, nodeId]) => {
         const node = nodes.find((n) => n.id === nodeId);
         if (!node) return null;
 
-        const color = getUserColor(remoteUserId);
+        const color =
+          usersById.get(remoteUserId)?.color ?? REMOTE_SELECTION_FALLBACK_COLOR;
         const x = node.x * transform.zoom + transform.x;
         const y = node.y * transform.zoom + transform.y;
         const w = node.width * transform.zoom;
         const h = node.height * transform.zoom;
 
-          return (
-            <div
+        return (
+          <div
             key={remoteUserId}
-              className="absolute"
-              style={{
-                left: x - 2,
+            className="absolute"
+            style={{
+              left: x - 2,
               top: y - 2,
               width: w + 4,
               height: h + 4,
@@ -224,42 +175,40 @@ export function SelectionOverlay({
         );
       })}
 
-      {/* Local selection — corner caps */}
       {selectedNode && (
         <>
-          {/* Selection outline (subtle) */}
           <div
-            className="absolute border border-blue-500/50"
+            className="absolute"
             style={{
               left: selectedNode.x * transform.zoom + transform.x,
               top: selectedNode.y * transform.zoom + transform.y,
               width: selectedNode.width * transform.zoom,
               height: selectedNode.height * transform.zoom,
+              border: `2px solid ${LOCAL_SELECTION_COLOR}`,
             }}
           />
 
-          {/* Corner caps with pointer-events enabled */}
           <div className="pointer-events-auto">
-            <CornerCap
-              position="nw"
+            <CornerHandle
+              corner="nw"
               x={selectedNode.x * transform.zoom + transform.x}
               y={selectedNode.y * transform.zoom + transform.y}
               onDragStart={handleDragStart}
             />
-            <CornerCap
-              position="ne"
+            <CornerHandle
+              corner="ne"
               x={(selectedNode.x + selectedNode.width) * transform.zoom + transform.x}
               y={selectedNode.y * transform.zoom + transform.y}
               onDragStart={handleDragStart}
             />
-            <CornerCap
-              position="sw"
+            <CornerHandle
+              corner="sw"
               x={selectedNode.x * transform.zoom + transform.x}
               y={(selectedNode.y + selectedNode.height) * transform.zoom + transform.y}
               onDragStart={handleDragStart}
             />
-            <CornerCap
-              position="se"
+            <CornerHandle
+              corner="se"
               x={(selectedNode.x + selectedNode.width) * transform.zoom + transform.x}
               y={(selectedNode.y + selectedNode.height) * transform.zoom + transform.y}
               onDragStart={handleDragStart}

@@ -7,10 +7,39 @@ import type {
 } from "../../shared/events";
 import { screenToWorld } from "../utils/coordinates";
 
+const USER_COLORS = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#06b6d4",
+  "#f97316",
+];
+
+function getUserColorIndex(userId: string): number {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash) % USER_COLORS.length;
+}
+
+function buildCollabUser(userId: string): CollabUser {
+  return {
+    id: userId,
+    color: USER_COLORS[getUserColorIndex(userId)],
+  };
+}
+
 export interface RemoteCursor {
   userId: string;
   x: number; // world-space
   y: number;
+}
+
+export interface CollabUser {
+  id: string;
+  color: string;
 }
 
 export function useCanvasCollab(
@@ -21,7 +50,7 @@ export function useCanvasCollab(
   handlers: CanvasEventHandlers = {},
 ) {
   const [cursors, setCursors] = useState<Map<string, RemoteCursor>>(new Map());
-  const [users, setUsers] = useState<string[]>(() => [userId]);
+  const [users, setUsers] = useState<CollabUser[]>(() => [buildCollabUser(userId)]);
   const wsRef = useRef<WebSocket | null>(null);
   const lastCursorSentAt = useRef(0);
 
@@ -33,7 +62,7 @@ export function useCanvasCollab(
 
     ws.onopen = () => {
       // Reset local collab state when a fresh socket session is established.
-      setUsers([userId]);
+      setUsers([buildCollabUser(userId)]);
       setCursors(new Map());
 
       // Assign only when open so stale constructing sockets cannot clobber ref.
@@ -65,18 +94,18 @@ export function useCanvasCollab(
             const ordered = Array.from(next)
               .filter((id) => id !== userId)
               .sort();
-            return [userId, ...ordered];
+            return [userId, ...ordered].map(buildCollabUser);
           });
           break;
 
         case "user_join":
           handlersRef.current.onUserJoin?.(msg.userId);
           setUsers((prev) => {
-            if (prev.includes(msg.userId)) return prev;
-            return [...prev, msg.userId].sort((a, b) => {
-              if (a === userId) return -1;
-              if (b === userId) return 1;
-              return a.localeCompare(b);
+            if (prev.some((user) => user.id === msg.userId)) return prev;
+            return [...prev, buildCollabUser(msg.userId)].sort((a, b) => {
+              if (a.id === userId) return -1;
+              if (b.id === userId) return 1;
+              return a.id.localeCompare(b.id);
             });
           });
           break;
@@ -120,7 +149,7 @@ export function useCanvasCollab(
           break;
 
         case "user_leave":
-          setUsers((prev) => prev.filter((id) => id !== msg.userId));
+          setUsers((prev) => prev.filter((user) => user.id !== msg.userId));
           setCursors((prev) => {
             const next = new Map(prev);
             next.delete(msg.userId);
@@ -143,7 +172,7 @@ export function useCanvasCollab(
       // StrictMode-safe: only clear if this exact socket is still current.
       if (wsRef.current === ws) wsRef.current = null;
 
-      setUsers([userId]);
+      setUsers([buildCollabUser(userId)]);
       setCursors(new Map());
     };
 

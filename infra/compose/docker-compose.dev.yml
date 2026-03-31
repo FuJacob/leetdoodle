@@ -9,7 +9,11 @@ services:
     # The default level ("replica") only supports physical replication;
     # logical decoding (which Debezium uses to read individual row changes)
     # needs the extra information that logical WAL includes.
-    command: postgres -c wal_level=logical
+    command: >
+      postgres
+      -c wal_level=logical
+      -c max_replication_slots=10
+      -c max_wal_senders=10
     ports:
       - "5432:5432"
     volumes:

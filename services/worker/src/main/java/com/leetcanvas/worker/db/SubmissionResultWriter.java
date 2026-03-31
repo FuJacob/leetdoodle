@@ -26,11 +26,13 @@ public class SubmissionResultWriter {
 
     public void write(String submissionId, EvalResult result) {
         try {
-            String resultJson = objectMapper.writeValueAsString(Map.of(
-                "passed",        result.passed(),
-                "total",         result.total(),
-                "failureDetail", result.failureDetail() != null ? result.failureDetail() : ""
-            ));
+            // Serialize only the fields the frontend needs. status goes in its own
+            // column; having it here too would be redundant. Jackson serializes
+            // CaseResult records directly — field names come from record component names.
+            var payload = new java.util.HashMap<String, Object>();
+            payload.put("cases",        result.cases());
+            payload.put("errorMessage", result.errorMessage());
+            String resultJson = objectMapper.writeValueAsString(payload);
 
             String sql = """
                 UPDATE submissions.submissions

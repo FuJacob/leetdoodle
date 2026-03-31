@@ -18,6 +18,7 @@ import { NodeRenderer } from "./NodeRenderer";
 import { CursorOverlay } from "./CursorOverlay";
 import { EdgesOverlay } from "./EdgesOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
+import { CanvasPresenceBar } from "./CanvasPresenceBar";
 import { SpawnPanel } from "./SpawnPanel";
 
 interface CanvasProps {
@@ -261,13 +262,17 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      <SpawnPanel onSpawn={handleSpawn} users={users} localUserId={userId} />
-      <CursorOverlay cursors={cursors} transform={transform} />
+      <div className="absolute right-4 top-4 z-10 flex items-start gap-3">
+        <CanvasPresenceBar users={users} localUserId={userId} />
+        <SpawnPanel onSpawn={handleSpawn} />
+      </div>
+      <CursorOverlay cursors={cursors} users={users} transform={transform} />
       <EdgesOverlay nodes={nodes} edges={edges} transform={transform} />
       <SelectionOverlay
         nodes={nodes}
         selectedNodeId={selectedNodeId}
         remoteSelections={remoteSelections}
+        users={users}
         transform={transform}
         onResize={resizeNode}
       />

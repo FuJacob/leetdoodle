@@ -47,6 +47,9 @@ public class ContainerPool {
         "javascript", "node:20-alpine"
     );
 
+    @Value("${worker.docker.host:unix:///var/run/docker.sock}")
+    private String dockerHost;
+
     @Value("${worker.pool.size:2}")
     private int poolSize;
 
@@ -60,10 +63,18 @@ public class ContainerPool {
 
     @PostConstruct
     public void init() {
+        // WHY SET dockerHost IN BOTH PLACES?
+        // DefaultDockerClientConfig reads DOCKER_HOST from the environment,
+        // which silently overrides whatever URI we pass to the HTTP client builder.
+        // Pinning the same value in the config too ensures the library agrees
+        // on which socket to use, regardless of what's in the environment.
+        var config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+            .withDockerHost(dockerHost)
+            .build();
         docker = DockerClientImpl.getInstance(
-            DefaultDockerClientConfig.createDefaultConfigBuilder().build(),
+            config,
             new ApacheDockerHttpClient.Builder()
-                .dockerHost(URI.create("unix:///var/run/docker.sock"))
+                .dockerHost(URI.create(dockerHost))
                 .connectionTimeout(Duration.ofSeconds(10))
                 .build()
         );

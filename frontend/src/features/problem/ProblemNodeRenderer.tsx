@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type {
   CanvasNode,
   NodeType,
@@ -6,6 +6,7 @@ import type {
   ProblemNode,
 } from "../../shared/nodes";
 import { extractSlug, parseStats, difficultyClass } from "./utils";
+import { useNodeContentSizeSync } from "../../canvas/hooks/useNodeContentSizeSync";
 
 const NODE_OPTIONS: { type: NodeType; label: string }[] = [
   { type: "note", label: "Note" },
@@ -14,6 +15,8 @@ const NODE_OPTIONS: { type: NodeType; label: string }[] = [
 ];
 
 const LEETCODE_SERVICE = "http://localhost:8081";
+const MIN_NODE_WIDTH = 100;
+const MIN_NODE_HEIGHT = 80;
 
 interface Props {
   node: ProblemNode;
@@ -35,6 +38,24 @@ export function ProblemNodeRenderer({
   const [loading, setLoading] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [showAddNodePanel, setShowAddNodePanel] = useState(false);
+  const loadedRootRef = useRef<HTMLDivElement | null>(null);
+  const handleSizeSync = useCallback(
+    (nodeId: string, width: number, height: number) => {
+      onUpdate(nodeId, { width, height });
+    },
+    [onUpdate],
+  );
+
+  useNodeContentSizeSync({
+    enabled: node.data.status === "loaded",
+    nodeId: node.id,
+    ref: loadedRootRef,
+    currentWidth: node.width,
+    currentHeight: node.height,
+    minWidth: MIN_NODE_WIDTH,
+    minHeight: MIN_NODE_HEIGHT,
+    onSizeChange: handleSizeSync,
+  });
 
   async function handleCreate() {
     const slug = extractSlug(url.trim());
@@ -57,6 +78,7 @@ export function ProblemNodeRenderer({
       const data: ProblemData = {
         status: "loaded",
         slug: p.slug,
+        questionId: p.questionId,
         title: p.title,
         difficulty: p.difficulty,
         content: p.content ?? "",
@@ -136,6 +158,7 @@ export function ProblemNodeRenderer({
 
   return (
     <div
+      ref={loadedRootRef}
       className={`${base} cursor-grab active:cursor-grabbing`}
       style={{ left: node.x, top: node.y, width: node.width }}
       onPointerDown={(e) => onPointerDown(e, node)}

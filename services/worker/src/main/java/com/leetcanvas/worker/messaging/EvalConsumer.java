@@ -12,6 +12,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Collections;
 
 @Component
 public class EvalConsumer {
@@ -51,20 +52,21 @@ public class EvalConsumer {
             if (testCases.isEmpty()) {
                 log.warn("No test cases for problem {}", job.problemId());
                 resultWriter.write(job.submissionId(),
-                    new EvalResult("RUNTIME_ERROR", 0, 0, "No test cases found for this problem"));
+                    new EvalResult("RUNTIME_ERROR", Collections.emptyList(), "No test cases found for this problem"));
                 return;
             }
 
             EvalResult result = runner.run(job.language(), job.code(), testCases);
             resultWriter.write(job.submissionId(), result);
 
+            long passed = result.cases().stream().filter(EvalRunner.CaseResult::passed).count();
             log.info("Submission {} → {} ({}/{})",
-                job.submissionId(), result.status(), result.passed(), result.total());
+                job.submissionId(), result.status(), passed, result.cases().size());
 
         } catch (Exception e) {
             log.error("Eval failed for submission {}", job.submissionId(), e);
             resultWriter.write(job.submissionId(),
-                new EvalResult("RUNTIME_ERROR", 0, 0, e.getMessage()));
+                new EvalResult("RUNTIME_ERROR", Collections.emptyList(), e.getMessage()));
         }
     }
 }

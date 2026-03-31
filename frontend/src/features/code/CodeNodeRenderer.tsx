@@ -9,10 +9,24 @@ import type {
   Edge,
   NodeType,
   ProblemNode,
+  TestResultsCase,
   TestResultsData,
   TestResultsNode,
+  TestResultsRunState,
 } from "../../shared/nodes";
-import { runCodeStub } from "../test-results/runStub";
+
+const SUBMISSIONS_URL = "http://localhost:8082/api/submissions";
+const TERMINAL_STATUSES = new Set(["ACCEPTED", "WRONG_ANSWER", "RUNTIME_ERROR", "TIME_LIMIT_EXCEEDED"]);
+
+function statusToRunState(status: string): TestResultsRunState {
+  switch (status) {
+    case "ACCEPTED":            return "accepted";
+    case "WRONG_ANSWER":        return "wrong_answer";
+    case "RUNTIME_ERROR":       return "runtime_error";
+    case "TIME_LIMIT_EXCEEDED": return "time_limit_exceeded";
+    default:                    return "runtime_error";
+  }
+}
 
 interface Props {
   node: CodeNode;
@@ -77,6 +91,10 @@ export function CodeNodeRenderer({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const applyingRemoteRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cancel any in-flight poll when the component unmounts
+  useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
 
   const connectedProblem = useMemo(() => {
     for (const edge of edges) {
@@ -173,52 +191,89 @@ export function CodeNodeRenderer({
   }, [node.data.content]);
 
   async function handleRunClick() {
-    if (!connectedProblem) return;
+    if (!connectedProblem || connectedProblem.data.status !== "loaded") return;
+    if (intervalRef.current) return; // already polling
 
+    const { questionId } = connectedProblem.data;
     const existingResults = connectedResults;
     const spawnedNodeId = existingResults ? undefined : onSpawn("test-results", node.id);
     const resultsNodeId = existingResults?.id ?? spawnedNodeId;
-
     if (!resultsNodeId) return;
 
-    patchResultsNode(
-      resultsNodeId,
-      onUpdate,
-      {
-        mode: "result",
-        runState: "running",
-        runtimeMs: null,
-        selectedCaseIndex: 0,
-      },
-      existingResults?.data,
-    );
+    patchResultsNode(resultsNodeId, onUpdate, {
+      mode: "result",
+      runState: "running",
+      runtimeMs: null,
+      selectedCaseIndex: 0,
+      cases: [],
+    }, existingResults?.data);
 
     try {
-      const problemId =
-        connectedProblem.data.status === "loaded"
-          ? connectedProblem.data.slug
-          : connectedProblem.id;
-
-      const stub = await runCodeStub(problemId, node.data.content);
-      const firstFail = stub.cases.findIndex((c) => !c.passed);
-
-      patchResultsNode(resultsNodeId, onUpdate, {
-        mode: "result",
-        runState: stub.runState,
-        runtimeMs: stub.runtimeMs,
-        selectedCaseIndex: firstFail >= 0 ? firstFail : 0,
-        cases: stub.cases,
-        errorMessage: stub.errorMessage,
-        lastExecutedInput: stub.lastExecutedInput,
+      const postRes = await fetch(SUBMISSIONS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId,
+          userId: "anonymous",
+          language: node.data.language,
+          code: node.data.content,
+        }),
       });
+      if (!postRes.ok) throw new Error(`Submit failed: ${postRes.status}`);
+      const { submissionId } = await postRes.json() as { submissionId: string };
+
+      intervalRef.current = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`${SUBMISSIONS_URL}/${submissionId}`);
+          if (!pollRes.ok) return; // transient — retry next tick
+
+          const submission = await pollRes.json() as { status: string; result: string | null };
+          if (!TERMINAL_STATUSES.has(submission.status)) return; // still running
+
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+
+          const runState = statusToRunState(submission.status);
+          const parsed = submission.result
+            ? (JSON.parse(submission.result) as {
+                cases: Array<{ input: string; expected: string; actual: string | null; passed: boolean; error: string | null }>;
+                errorMessage: string | null;
+              })
+            : null;
+
+          const cases: TestResultsCase[] = (parsed?.cases ?? []).map((c) => ({
+            input: c.input,
+            output: c.actual,
+            expected: c.expected,
+            passed: c.passed,
+            error: c.error,
+          }));
+
+          const firstFail = cases.findIndex((c) => !c.passed);
+          patchResultsNode(resultsNodeId, onUpdate, {
+            mode: "result",
+            runState,
+            runtimeMs: 0, // TODO: implement runtime tracking in worker
+            cases,
+            selectedCaseIndex: firstFail >= 0 ? firstFail : 0,
+            errorMessage: parsed?.errorMessage ?? undefined,
+            lastExecutedInput: cases.find((c) => c.error != null)?.input,
+          }, existingResults?.data);
+
+        } catch {
+          // transient poll error — retry on next tick
+        }
+      }, 500);
+
     } catch (error) {
       patchResultsNode(resultsNodeId, onUpdate, {
         mode: "result",
         runState: "runtime_error",
         runtimeMs: 0,
         selectedCaseIndex: 0,
+        cases: [],
         errorMessage: error instanceof Error ? error.message : String(error),
-      });
+      }, existingResults?.data);
     }
   }
 
