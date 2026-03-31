@@ -73,7 +73,7 @@ function cloneCanvasNode(node: CanvasNode, dx: number, dy: number): CanvasNode {
 
 export function Canvas({ canvasId, userId }: CanvasProps) {
   const GRID_SPACING = 32;
-  const GRID_DOT_RADIUS = 1;
+  const GRID_DOT_RADIUS = 1.35;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -345,7 +345,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   );
 
   const gridSpacingPx = Math.max(4, GRID_SPACING * transform.zoom);
-  const gridDotRadiusPx = Math.max(0.4, GRID_DOT_RADIUS * transform.zoom);
+  const gridDotRadiusPx = Math.max(0.7, GRID_DOT_RADIUS * transform.zoom);
 
   return (
     <div

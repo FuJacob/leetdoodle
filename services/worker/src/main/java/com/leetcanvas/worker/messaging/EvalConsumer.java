@@ -44,6 +44,13 @@ public class EvalConsumer {
      */
     @RabbitListener(queues = RabbitConfig.QUEUE)
     public void handle(EvalJob job) {
+        if (!isValid(job)) {
+            // Malformed payloads are non-retryable (usually serialization/config drift).
+            // Returning without throwing ACKs the message so it does not poison the queue.
+            log.error("Dropping malformed eval job payload: {}", job);
+            return;
+        }
+
         log.info("Evaluating submission {} (problem={}, lang={})",
             job.submissionId(), job.problemId(), job.language());
 
@@ -68,5 +75,13 @@ public class EvalConsumer {
             resultWriter.write(job.submissionId(),
                 new EvalResult("RUNTIME_ERROR", Collections.emptyList(), e.getMessage()));
         }
+    }
+
+    private boolean isValid(EvalJob job) {
+        if (job == null) return false;
+        if (job.submissionId() == null || job.submissionId().isBlank()) return false;
+        if (job.problemId() <= 0) return false;
+        if (job.language() == null || job.language().isBlank()) return false;
+        return job.code() != null;
     }
 }

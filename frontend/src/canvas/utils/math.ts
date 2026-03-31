@@ -1,6 +1,6 @@
 import type { Transform } from "../types";
 
-export const MIN_ZOOM = 0.03;
+export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 5;
 export const ZOOM_SENSITIVITY = 0.02;
 
