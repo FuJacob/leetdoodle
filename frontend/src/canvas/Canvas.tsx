@@ -262,7 +262,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      <div className="absolute right-4 top-4 z-10 flex items-start gap-3">
+      <div className="absolute right-4 top-4 z-40 flex items-start gap-3">
         <CanvasPresenceBar users={users} localUserId={userId} />
         <SpawnPanel onSpawn={handleSpawn} />
       </div>
@@ -278,7 +278,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       />
 
       <div
-        className="absolute left-0 top-0"
+        className="absolute left-0 top-0 z-10"
         style={{
           transformOrigin: "0 0",
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.zoom})`,

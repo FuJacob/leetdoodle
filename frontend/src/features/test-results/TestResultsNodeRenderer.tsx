@@ -100,16 +100,14 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
       onPointerDown={(e) => onPointerDown(e, node)}
     >
       {/* Header — mode tabs */}
-      <div
-        className="flex items-center justify-between border-b border-zinc-700 p-2"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
+      <div className="flex items-center justify-between border-b border-zinc-700 p-2">
         <div className="flex items-center gap-3">
           <button
             type="button"
             className={`text-xs font-semibold ${
               data.mode === "testcase" ? "text-zinc-100" : "text-zinc-500"
             }`}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => updateResultsData(node, onUpdate, { mode: "testcase" })}
           >
             Testcase
@@ -120,6 +118,7 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
             className={`text-xs font-semibold ${
               data.mode === "result" ? "text-zinc-100" : "text-zinc-500"
             }`}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => updateResultsData(node, onUpdate, { mode: "result" })}
           >
             Test Result

@@ -1,6 +1,11 @@
 package com.leetcanvas.worker.messaging;
 
 import com.leetcanvas.worker.model.EvalJob;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.DirectExchange;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.DefaultClassMapper;
@@ -12,7 +17,24 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitConfig {
 
+    public static final String EXCHANGE = "eval";
     public static final String QUEUE = "eval.queue";
+    public static final String ROUTING_KEY = "eval";
+
+    @Bean
+    public DirectExchange evalExchange() {
+        return new DirectExchange(EXCHANGE);
+    }
+
+    @Bean
+    public Queue evalQueue() {
+        return QueueBuilder.durable(QUEUE).build();
+    }
+
+    @Bean
+    public Binding evalBinding(Queue evalQueue, DirectExchange evalExchange) {
+        return BindingBuilder.bind(evalQueue).to(evalExchange).with(ROUTING_KEY);
+    }
 
     @Bean
     public MessageConverter messageConverter() {
@@ -56,6 +78,8 @@ public class RabbitConfig {
         factory.setConnectionFactory(cf);
         factory.setMessageConverter(messageConverter());
         factory.setPrefetchCount(1);
+        // Keep worker process alive if the queue is declared later by another service.
+        factory.setMissingQueuesFatal(false);
         return factory;
     }
 }

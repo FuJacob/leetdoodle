@@ -28,15 +28,18 @@ function CornerHandle({
   y: number;
   onDragStart: (e: React.PointerEvent, corner: Corner) => void;
 }) {
-  const size = 14;
+  const outerSize = 16;
+  const innerSize = 8;
   const style: React.CSSProperties = {
     position: "absolute",
-    left: x - size / 2,
-    top: y - size / 2,
-    width: size,
-    height: size,
-    backgroundColor: "#ffffff",
-    border: `2px solid ${LOCAL_SELECTION_COLOR}`,
+    left: x - outerSize / 2,
+    top: y - outerSize / 2,
+    width: outerSize,
+    height: outerSize,
+    backgroundColor: LOCAL_SELECTION_COLOR,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     cursor: corner === "nw" || corner === "se" ? "nwse-resize" : "nesw-resize",
   };
 
@@ -47,7 +50,15 @@ function CornerHandle({
         e.stopPropagation();
         onDragStart(e, corner);
       }}
-    />
+    >
+      <div
+        style={{
+          width: innerSize,
+          height: innerSize,
+          backgroundColor: "#ffffff",
+        }}
+      />
+    </div>
   );
 }
 
@@ -144,7 +155,7 @@ export function SelectionOverlay({
 
   return (
     <div
-      className="absolute inset-0 pointer-events-none"
+      className="absolute inset-0 z-20 pointer-events-none"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >

@@ -1,10 +1,12 @@
 package com.leetcanvas.worker.docker;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
-import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
+import com.github.dockerjava.core.command.PullImageResultCallback;
+import com.github.dockerjava.zerodep.ZerodepDockerHttpClient;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -73,7 +75,7 @@ public class ContainerPool {
             .build();
         docker = DockerClientImpl.getInstance(
             config,
-            new ApacheDockerHttpClient.Builder()
+            new ZerodepDockerHttpClient.Builder()
                 .dockerHost(URI.create(dockerHost))
                 .connectionTimeout(Duration.ofSeconds(10))
                 .build()
@@ -83,12 +85,35 @@ public class ContainerPool {
         for (var entry : IMAGES.entrySet()) {
             String language = entry.getKey();
             String image    = entry.getValue();
+            ensureImageAvailable(image);
             var queue = new LinkedBlockingQueue<String>(poolSize);
             pools.put(language, queue);
             for (int i = 0; i < poolSize; i++) {
                 queue.add(createAndStart(language, image));
             }
             log.info("Pool ready: {} × {} containers for {}", poolSize, image, language);
+        }
+    }
+
+    /**
+     * Ensures the Docker image is present locally before pre-warming containers.
+     * This prevents startup failures on fresh machines where the runtime image
+     * hasn't been pulled yet.
+     */
+    private void ensureImageAvailable(String image) {
+        try {
+            docker.inspectImageCmd(image).exec();
+        } catch (NotFoundException ignored) {
+            log.info("Image {} not found locally; pulling...", image);
+            try {
+                docker.pullImageCmd(image)
+                    .exec(new PullImageResultCallback())
+                    .awaitCompletion();
+                log.info("Pulled image {}", image);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while pulling image " + image, e);
+            }
         }
     }
 

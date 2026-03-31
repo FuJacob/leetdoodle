@@ -25,7 +25,7 @@ export function CursorOverlay({ cursors, users, transform }: Props) {
         return (
           <div
             key={userId}
-            className="pointer-events-none absolute z-20 flex items-start"
+            className="pointer-events-none absolute z-30 flex items-start"
             style={{ left: sx, top: sy }}
           >
             <div className="rounded-full p-2" style={{ backgroundColor: color }} />
