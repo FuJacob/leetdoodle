@@ -110,10 +110,23 @@ export interface TestResultsNode extends CanvasNodeBase {
 }
 
 // ---------------------------------------------------------------------------
+// Draw node
+// ---------------------------------------------------------------------------
+
+export interface DrawNode extends CanvasNodeBase {
+  type: 'draw';
+  data: {
+    // Points in node-local coordinates (offset from node.x, node.y in world space)
+    points: Array<[number, number]>;
+    thickness: number;
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Union + helpers
 // ---------------------------------------------------------------------------
 
-export type CanvasNode = NoteNode | ProblemNode | CodeNode | TestResultsNode;
+export type CanvasNode = NoteNode | ProblemNode | CodeNode | TestResultsNode | DrawNode;
 export type NodeType = CanvasNode['type'];
 
 export interface Edge {
@@ -155,6 +168,25 @@ export function createCodeNode(x: number, y: number): CodeNode {
     width: 400,
     height: 250,
     data: { content: '', language: 'javascript' },
+  };
+}
+
+export function createDrawNode(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  points: Array<[number, number]>,
+  thickness: number,
+): DrawNode {
+  return {
+    id: crypto.randomUUID(),
+    type: 'draw',
+    x,
+    y,
+    width,
+    height,
+    data: { points, thickness },
   };
 }
 

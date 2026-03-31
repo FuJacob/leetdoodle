@@ -51,6 +51,10 @@ export function useCanvasCollab(
 ) {
   const [cursors, setCursors] = useState<Map<string, RemoteCursor>>(new Map());
   const [users, setUsers] = useState<CollabUser[]>(() => [buildCollabUser(userId)]);
+  // Active in-progress strokes from remote users, keyed by userId.
+  // Points are world-space, accumulated as draw_points batches arrive.
+  // Cleared when draw_end arrives or the user leaves.
+  const [remoteStrokes, setRemoteStrokes] = useState<Map<string, Array<[number, number]>>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const lastCursorSentAt = useRef(0);
 
@@ -64,6 +68,7 @@ export function useCanvasCollab(
       // Reset local collab state when a fresh socket session is established.
       setUsers([buildCollabUser(userId)]);
       setCursors(new Map());
+      setRemoteStrokes(new Map());
 
       // Assign only when open so stale constructing sockets cannot clobber ref.
       wsRef.current = ws;
@@ -148,9 +153,31 @@ export function useCanvasCollab(
           handlersRef.current.onNodeSelect?.(msg.userId, msg.nodeId);
           break;
 
+        case "draw_points":
+          setRemoteStrokes((prev) => {
+            const next = new Map(prev);
+            const existing = next.get(msg.userId) ?? [];
+            next.set(msg.userId, [...existing, ...msg.points]);
+            return next;
+          });
+          break;
+
+        case "draw_end":
+          setRemoteStrokes((prev) => {
+            const next = new Map(prev);
+            next.delete(msg.userId);
+            return next;
+          });
+          break;
+
         case "user_leave":
           setUsers((prev) => prev.filter((user) => user.id !== msg.userId));
           setCursors((prev) => {
+            const next = new Map(prev);
+            next.delete(msg.userId);
+            return next;
+          });
+          setRemoteStrokes((prev) => {
             const next = new Map(prev);
             next.delete(msg.userId);
             return next;
@@ -174,6 +201,7 @@ export function useCanvasCollab(
 
       setUsers([buildCollabUser(userId)]);
       setCursors(new Map());
+      setRemoteStrokes(new Map());
     };
 
     ws.onerror = (err) => {
@@ -217,5 +245,5 @@ export function useCanvasCollab(
     [userId, viewportRef, transformRef, send],
   );
 
-  return { cursors, users, send, onPointerMove };
+  return { cursors, users, remoteStrokes, send, onPointerMove };
 }

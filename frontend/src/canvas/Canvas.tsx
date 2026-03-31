@@ -6,6 +6,7 @@ import {
   createNoteNode,
   createProblemNode,
   createCodeNode,
+  createDrawNode,
   createTestResultsNode,
 } from "../shared/nodes";
 import type { CanvasOutboundEvent } from "../shared/events";
@@ -16,14 +17,20 @@ import { useCanvasCollab } from "./hooks/useCanvasCollab";
 import { screenToWorld } from "./utils/coordinates";
 import { NodeRenderer } from "./NodeRenderer";
 import { CursorOverlay } from "./CursorOverlay";
+import { DrawingOverlay } from "./DrawingOverlay";
 import { EdgesOverlay } from "./EdgesOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
 import { CanvasPresenceBar } from "./CanvasPresenceBar";
 import { SpawnPanel } from "./SpawnPanel";
+import { ToolPanel } from "./ToolPanel";
 
 interface CanvasProps {
   canvasId: string;
   userId: string;
+}
+
+function assertNever(x: never): never {
+  throw new Error(`Unsupported node type: ${String(x)}`);
 }
 
 function spawnNode(type: NodeType, x: number, y: number): CanvasNode {
@@ -34,12 +41,18 @@ function spawnNode(type: NodeType, x: number, y: number): CanvasNode {
       return createProblemNode(x, y);
     case "code":
       return createCodeNode(x, y);
+    case "draw":
+      return createDrawNode(x, y, 1, 1, [], 2);
     case "test-results":
       return createTestResultsNode(x, y);
+    default:
+      return assertNever(type);
   }
 }
 
 export function Canvas({ canvasId, userId }: CanvasProps) {
+  const GRID_SPACING = 32;
+  const GRID_DOT_RADIUS = 1;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -69,10 +82,25 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     sendRef,
   });
 
+  // Drawing tool state
+  const [tool, setTool] = useState<"select" | "draw">("select");
+  const [thickness, setThickness] = useState(2);
+  // Refs for imperative drawing — avoids re-rendering Canvas on every pointer move
+  const isDrawingRef = useRef(false);
+  const allDrawPointsRef = useRef<Array<[number, number]>>([]);
+  const pendingDrawPointsRef = useRef<Array<[number, number]>>([]);
+  const lastDrawFlushRef = useRef(0);
+  // Direct SVG manipulation for local stroke preview — no React state needed
+  const localPolylineRef = useRef<SVGPolylineElement | null>(null);
+  // Keep a ref to thickness so drawing handlers don't need to re-create on change
+  const thicknessRef = useRef(thickness);
+  useEffect(() => { thicknessRef.current = thickness; }, [thickness]);
+
   // Collab hook with event handlers for remote updates
   const {
     cursors,
     users,
+    remoteStrokes,
     send,
     onPointerMove: collabPointerMove,
   } = useCanvasCollab(canvasId, userId, viewportRef, transformRef, {
@@ -218,6 +246,117 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     [panPointerUp, dragPointerUp],
   );
 
+  // ---------------------------------------------------------------------------
+  // Drawing handlers — only active when tool === "draw"
+  //
+  // We use imperative SVG manipulation for the local stroke preview so that
+  // pointer-move updates never trigger a React re-render. All points are kept
+  // in refs; only the final commit creates React state (a new DrawNode).
+  // ---------------------------------------------------------------------------
+
+  const updateLocalPolyline = useCallback(() => {
+    const el = localPolylineRef.current;
+    if (!el) return;
+    const t = transformRef.current;
+    const pts = allDrawPointsRef.current
+      .map(([x, y]) => `${x * t.zoom + t.x},${y * t.zoom + t.y}`)
+      .join(" ");
+    el.setAttribute("points", pts);
+  }, [transformRef]);
+
+  const handleDrawPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // Capture so we keep receiving events if the pointer leaves the element
+      e.currentTarget.setPointerCapture(e.pointerId);
+      isDrawingRef.current = true;
+      allDrawPointsRef.current = [];
+      pendingDrawPointsRef.current = [];
+
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const { x, y } = screenToWorld(
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+        transformRef.current,
+      );
+      const pt: [number, number] = [x, y];
+      allDrawPointsRef.current.push(pt);
+      pendingDrawPointsRef.current.push(pt);
+      updateLocalPolyline();
+    },
+    [transformRef, viewportRef, updateLocalPolyline],
+  );
+
+  const handleDrawPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!isDrawingRef.current) return;
+      collabPointerMove(e); // keep cursor position up to date for peers
+
+      const rect = viewportRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const { x, y } = screenToWorld(
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+        transformRef.current,
+      );
+      const pt: [number, number] = [x, y];
+      allDrawPointsRef.current.push(pt);
+      pendingDrawPointsRef.current.push(pt);
+      updateLocalPolyline();
+
+      // Flush accumulated points to peers at ~60fps
+      const now = performance.now();
+      if (now - lastDrawFlushRef.current >= 16 && pendingDrawPointsRef.current.length > 0) {
+        lastDrawFlushRef.current = now;
+        const batch = pendingDrawPointsRef.current.splice(0);
+        send({ type: "draw_points", points: batch });
+      }
+    },
+    [transformRef, viewportRef, collabPointerMove, updateLocalPolyline, send],
+  );
+
+  const handleDrawPointerUp = useCallback(() => {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+
+    // Flush any remaining buffered points
+    if (pendingDrawPointsRef.current.length > 0) {
+      send({ type: "draw_points", points: pendingDrawPointsRef.current.splice(0) });
+    }
+    send({ type: "draw_end" });
+
+    // Clear local preview
+    localPolylineRef.current?.setAttribute("points", "");
+
+    // Commit: normalize bounding box so node.x/y/width/height tightly wrap the stroke
+    const pts = allDrawPointsRef.current;
+    if (pts.length < 2) return;
+
+    const PADDING = 4; // small visual breathing room around the stroke
+    const xs = pts.map(([px]) => px);
+    const ys = pts.map(([, py]) => py);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+
+    const nodeX = minX - PADDING;
+    const nodeY = minY - PADDING;
+    const nodeW = Math.max(maxX - minX + 2 * PADDING, 1);
+    const nodeH = Math.max(maxY - minY + 2 * PADDING, 1);
+
+    // Points become relative to the node's top-left corner
+    const relPts: Array<[number, number]> = pts.map(([px, py]) => [
+      px - nodeX,
+      py - nodeY,
+    ]);
+
+    const node = createDrawNode(nodeX, nodeY, nodeW, nodeH, relPts, thicknessRef.current);
+    setNodes((prev) => [...prev, node]);
+    send({ type: "node_create", node });
+    selectNode(node.id);
+  }, [send, selectNode]);
+
   const handleSpawn = useCallback(
     (type: NodeType, fromNodeId?: string): string | undefined => {
       const el = viewportRef.current;
@@ -254,19 +393,60 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     [transformRef, send, selectNode],
   );
 
+  const gridSpacingPx = Math.max(4, GRID_SPACING * transform.zoom);
+  const gridDotRadiusPx = Math.max(0.4, GRID_DOT_RADIUS * transform.zoom);
+
   return (
     <div
       ref={viewportRef}
-      className="fixed inset-0 overflow-hidden bg-zinc-950 bg-[radial-gradient(circle,var(--color-zinc-700)_1px,transparent_1px)] bg-size-[32px_32px]"
+      className="fixed inset-0 overflow-hidden bg-zinc-950"
+      style={{
+        backgroundImage: `radial-gradient(circle, var(--color-zinc-700) ${gridDotRadiusPx}px, transparent ${gridDotRadiusPx}px)`,
+        backgroundSize: `${gridSpacingPx}px ${gridSpacingPx}px`,
+        backgroundPosition: `${transform.x}px ${transform.y}px`,
+      }}
       onPointerDown={handleCanvasPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
-      <div className="absolute right-4 top-4 z-40 flex items-start gap-3">
+      <div className="absolute right-4 top-4 z-60 flex items-start gap-3">
         <CanvasPresenceBar users={users} localUserId={userId} />
-        <SpawnPanel onSpawn={handleSpawn} />
+        <ToolPanel
+          tool={tool}
+          onToolChange={setTool}
+          thickness={thickness}
+          onThicknessChange={setThickness}
+        />
+        {tool === "select" && <SpawnPanel onSpawn={handleSpawn} />}
       </div>
+
+      {/* Local stroke preview — updated imperatively, no React re-renders during drawing */}
+      <svg
+        className="pointer-events-none absolute inset-0 z-25"
+        style={{ width: "100%", height: "100%" }}
+      >
+        <polyline
+          ref={localPolylineRef}
+          fill="none"
+          stroke="white"
+          strokeWidth={thickness}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+
+      {/* Transparent capture layer — sits on top of everything when draw tool is active */}
+      {tool === "draw" && (
+        <div
+          className="absolute inset-0 z-50 cursor-crosshair"
+          onPointerDown={handleDrawPointerDown}
+          onPointerMove={handleDrawPointerMove}
+          onPointerUp={handleDrawPointerUp}
+        />
+      )}
+
       <CursorOverlay cursors={cursors} users={users} transform={transform} />
+      <DrawingOverlay remoteStrokes={remoteStrokes} users={users} transform={transform} />
       <EdgesOverlay nodes={nodes} edges={edges} transform={transform} />
       <SelectionOverlay
         nodes={nodes}
