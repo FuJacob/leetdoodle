@@ -23,6 +23,10 @@ import { SelectionOverlay } from "./SelectionOverlay";
 import { CanvasPresenceBar } from "./CanvasPresenceBar";
 import { SpawnPanel } from "./SpawnPanel";
 import { ToolPanel } from "./ToolPanel";
+import { useSelectToolController } from "./tools/useSelectToolController";
+import { useDrawToolController } from "../features/draw/hooks/useDrawToolController";
+import { useActiveToolController } from "./tools/useActiveToolController";
+import type { CanvasTool } from "./tools/types";
 
 interface CanvasProps {
   canvasId: string;
@@ -48,6 +52,23 @@ function spawnNode(type: NodeType, x: number, y: number): CanvasNode {
     default:
       return assertNever(type);
   }
+}
+
+function cloneNodeData<T>(value: T): T {
+  if (typeof structuredClone === "function") {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function cloneCanvasNode(node: CanvasNode, dx: number, dy: number): CanvasNode {
+  return {
+    ...node,
+    id: crypto.randomUUID(),
+    x: node.x + dx,
+    y: node.y + dy,
+    data: cloneNodeData(node.data),
+  } as CanvasNode;
 }
 
 export function Canvas({ canvasId, userId }: CanvasProps) {
@@ -83,18 +104,8 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   });
 
   // Drawing tool state
-  const [tool, setTool] = useState<"select" | "draw">("select");
+  const [tool, setTool] = useState<CanvasTool>("select");
   const [thickness, setThickness] = useState(2);
-  // Refs for imperative drawing — avoids re-rendering Canvas on every pointer move
-  const isDrawingRef = useRef(false);
-  const allDrawPointsRef = useRef<Array<[number, number]>>([]);
-  const pendingDrawPointsRef = useRef<Array<[number, number]>>([]);
-  const lastDrawFlushRef = useRef(0);
-  // Direct SVG manipulation for local stroke preview — no React state needed
-  const localPolylineRef = useRef<SVGPolylineElement | null>(null);
-  // Keep a ref to thickness so drawing handlers don't need to re-create on change
-  const thicknessRef = useRef(thickness);
-  useEffect(() => { thicknessRef.current = thickness; }, [thickness]);
 
   // Collab hook with event handlers for remote updates
   const {
@@ -124,6 +135,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       setEdges((prev) =>
         prev.filter((e) => e.fromNodeId !== nodeId && e.toNodeId !== nodeId),
       );
+      setSelectedNodeId((prev) => (prev === nodeId ? null : prev));
       onDeleteCrdtDoc(nodeId);
     },
     onEdgeCreate: (edge) => {
@@ -202,160 +214,99 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     [send, userId],
   );
 
+  const deleteNode = useCallback(
+    (nodeId: string) => {
+      setNodes((prev) => prev.filter((node) => node.id !== nodeId));
+      setEdges((prev) =>
+        prev.filter((edge) => edge.fromNodeId !== nodeId && edge.toNodeId !== nodeId),
+      );
+      if (selectedNodeId === nodeId) {
+        selectNode(null);
+      }
+      onDeleteCrdtDoc(nodeId);
+      send({ type: "node_delete", nodeId });
+    },
+    [onDeleteCrdtDoc, selectedNodeId, selectNode, send],
+  );
+
+  const cloneNode = useCallback(
+    (nodeId: string) => {
+      const sourceNode = nodes.find((node) => node.id === nodeId);
+      if (!sourceNode) return;
+
+      const clonedNode = cloneCanvasNode(sourceNode, 24, 24);
+      setNodes((prev) => [...prev, clonedNode]);
+      send({ type: "node_create", node: clonedNode });
+      selectNode(clonedNode.id);
+    },
+    [nodes, send, selectNode],
+  );
+
   const {
     onNodePointerDown: dragPointerDown,
     onPointerMove: dragPointerMove,
     onPointerUp: dragPointerUp,
   } = useNodeDrag(transformRef, moveNode);
 
-  // Wrap node pointer down to also select the node
-  const onNodePointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>, node: CanvasNode) => {
+  const commitDrawStroke = useCallback(
+    (pts: Array<[number, number]>, strokeThickness: number) => {
+      const PADDING = 4;
+      const xs = pts.map(([x]) => x);
+      const ys = pts.map(([, y]) => y);
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+      const maxX = Math.max(...xs);
+      const maxY = Math.max(...ys);
+
+      const nodeX = minX - PADDING;
+      const nodeY = minY - PADDING;
+      const nodeW = Math.max(maxX - minX + 2 * PADDING, 1);
+      const nodeH = Math.max(maxY - minY + 2 * PADDING, 1);
+      const relPts: Array<[number, number]> = pts.map(([x, y]) => [
+        x - nodeX,
+        y - nodeY,
+      ]);
+
+      const node = createDrawNode(
+        nodeX,
+        nodeY,
+        nodeW,
+        nodeH,
+        relPts,
+        strokeThickness,
+      );
+      setNodes((prev) => [...prev, node]);
+      send({ type: "node_create", node });
       selectNode(node.id);
-      dragPointerDown(e, node);
     },
-    [selectNode, dragPointerDown],
+    [send, selectNode],
   );
 
-  // Handle canvas background click — deselect
-  const handleCanvasPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      // Only deselect if clicking the canvas itself, not a node
-      if (e.target === e.currentTarget) {
-        selectNode(null);
-      }
-      panPointerDown(e);
-    },
-    [selectNode, panPointerDown],
+  const selectToolController = useSelectToolController({
+    selectNode,
+    panPointerDown,
+    panPointerMove,
+    panPointerUp,
+    dragPointerDown,
+    dragPointerMove,
+    dragPointerUp,
+    collabPointerMove,
+  });
+
+  const drawToolController = useDrawToolController({
+    viewportRef,
+    transformRef,
+    send,
+    collabPointerMove,
+    thickness,
+    onCommitStroke: commitDrawStroke,
+  });
+
+  const activeToolController = useActiveToolController(
+    tool,
+    selectToolController,
+    drawToolController,
   );
-
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      panPointerMove(e);
-      dragPointerMove(e);
-      collabPointerMove(e);
-    },
-    [panPointerMove, dragPointerMove, collabPointerMove],
-  );
-
-  const onPointerUp = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      panPointerUp(e);
-      dragPointerUp();
-    },
-    [panPointerUp, dragPointerUp],
-  );
-
-  // ---------------------------------------------------------------------------
-  // Drawing handlers — only active when tool === "draw"
-  //
-  // We use imperative SVG manipulation for the local stroke preview so that
-  // pointer-move updates never trigger a React re-render. All points are kept
-  // in refs; only the final commit creates React state (a new DrawNode).
-  // ---------------------------------------------------------------------------
-
-  const updateLocalPolyline = useCallback(() => {
-    const el = localPolylineRef.current;
-    if (!el) return;
-    const t = transformRef.current;
-    const pts = allDrawPointsRef.current
-      .map(([x, y]) => `${x * t.zoom + t.x},${y * t.zoom + t.y}`)
-      .join(" ");
-    el.setAttribute("points", pts);
-  }, [transformRef]);
-
-  const handleDrawPointerDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      // Capture so we keep receiving events if the pointer leaves the element
-      e.currentTarget.setPointerCapture(e.pointerId);
-      isDrawingRef.current = true;
-      allDrawPointsRef.current = [];
-      pendingDrawPointsRef.current = [];
-
-      const rect = viewportRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const { x, y } = screenToWorld(
-        e.clientX - rect.left,
-        e.clientY - rect.top,
-        transformRef.current,
-      );
-      const pt: [number, number] = [x, y];
-      allDrawPointsRef.current.push(pt);
-      pendingDrawPointsRef.current.push(pt);
-      updateLocalPolyline();
-    },
-    [transformRef, viewportRef, updateLocalPolyline],
-  );
-
-  const handleDrawPointerMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!isDrawingRef.current) return;
-      collabPointerMove(e); // keep cursor position up to date for peers
-
-      const rect = viewportRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const { x, y } = screenToWorld(
-        e.clientX - rect.left,
-        e.clientY - rect.top,
-        transformRef.current,
-      );
-      const pt: [number, number] = [x, y];
-      allDrawPointsRef.current.push(pt);
-      pendingDrawPointsRef.current.push(pt);
-      updateLocalPolyline();
-
-      // Flush accumulated points to peers at ~60fps
-      const now = performance.now();
-      if (now - lastDrawFlushRef.current >= 16 && pendingDrawPointsRef.current.length > 0) {
-        lastDrawFlushRef.current = now;
-        const batch = pendingDrawPointsRef.current.splice(0);
-        send({ type: "draw_points", points: batch });
-      }
-    },
-    [transformRef, viewportRef, collabPointerMove, updateLocalPolyline, send],
-  );
-
-  const handleDrawPointerUp = useCallback(() => {
-    if (!isDrawingRef.current) return;
-    isDrawingRef.current = false;
-
-    // Flush any remaining buffered points
-    if (pendingDrawPointsRef.current.length > 0) {
-      send({ type: "draw_points", points: pendingDrawPointsRef.current.splice(0) });
-    }
-    send({ type: "draw_end" });
-
-    // Clear local preview
-    localPolylineRef.current?.setAttribute("points", "");
-
-    // Commit: normalize bounding box so node.x/y/width/height tightly wrap the stroke
-    const pts = allDrawPointsRef.current;
-    if (pts.length < 2) return;
-
-    const PADDING = 4; // small visual breathing room around the stroke
-    const xs = pts.map(([px]) => px);
-    const ys = pts.map(([, py]) => py);
-    const minX = Math.min(...xs);
-    const minY = Math.min(...ys);
-    const maxX = Math.max(...xs);
-    const maxY = Math.max(...ys);
-
-    const nodeX = minX - PADDING;
-    const nodeY = minY - PADDING;
-    const nodeW = Math.max(maxX - minX + 2 * PADDING, 1);
-    const nodeH = Math.max(maxY - minY + 2 * PADDING, 1);
-
-    // Points become relative to the node's top-left corner
-    const relPts: Array<[number, number]> = pts.map(([px, py]) => [
-      px - nodeX,
-      py - nodeY,
-    ]);
-
-    const node = createDrawNode(nodeX, nodeY, nodeW, nodeH, relPts, thicknessRef.current);
-    setNodes((prev) => [...prev, node]);
-    send({ type: "node_create", node });
-    selectNode(node.id);
-  }, [send, selectNode]);
 
   const handleSpawn = useCallback(
     (type: NodeType, fromNodeId?: string): string | undefined => {
@@ -405,9 +356,9 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
         backgroundSize: `${gridSpacingPx}px ${gridSpacingPx}px`,
         backgroundPosition: `${transform.x}px ${transform.y}px`,
       }}
-      onPointerDown={handleCanvasPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onPointerDown={activeToolController.onCanvasPointerDown}
+      onPointerMove={activeToolController.onCanvasPointerMove}
+      onPointerUp={activeToolController.onCanvasPointerUp}
     >
       <div className="absolute right-4 top-4 z-60 flex items-start gap-3">
         <CanvasPresenceBar users={users} localUserId={userId} />
@@ -420,30 +371,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
         {tool === "select" && <SpawnPanel onSpawn={handleSpawn} />}
       </div>
 
-      {/* Local stroke preview — updated imperatively, no React re-renders during drawing */}
-      <svg
-        className="pointer-events-none absolute inset-0 z-25"
-        style={{ width: "100%", height: "100%" }}
-      >
-        <polyline
-          ref={localPolylineRef}
-          fill="none"
-          stroke="white"
-          strokeWidth={thickness}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-
-      {/* Transparent capture layer — sits on top of everything when draw tool is active */}
-      {tool === "draw" && (
-        <div
-          className="absolute inset-0 z-50 cursor-crosshair"
-          onPointerDown={handleDrawPointerDown}
-          onPointerMove={handleDrawPointerMove}
-          onPointerUp={handleDrawPointerUp}
-        />
-      )}
+      {activeToolController.layers}
 
       <CursorOverlay cursors={cursors} users={users} transform={transform} />
       <DrawingOverlay remoteStrokes={remoteStrokes} users={users} transform={transform} />
@@ -455,6 +383,8 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
         users={users}
         transform={transform}
         onResize={resizeNode}
+        onDelete={deleteNode}
+        onClone={cloneNode}
       />
 
       <div
@@ -472,7 +402,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
             node={node}
             nodes={nodes}
             edges={edges}
-            onPointerDown={onNodePointerDown}
+            onPointerDown={activeToolController.onNodePointerDown}
             onUpdate={updateNode}
             onSpawn={handleSpawn}
             onTextEdits={onTextEdits}

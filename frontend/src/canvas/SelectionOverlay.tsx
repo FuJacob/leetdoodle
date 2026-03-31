@@ -10,12 +10,16 @@ interface Props {
   users: CollabUser[];
   transform: Transform;
   onResize: (nodeId: string, width: number, height: number) => void;
+  onClone: (nodeId: string) => void;
+  onDelete: (nodeId: string) => void;
 }
 
 type Corner = "nw" | "ne" | "sw" | "se";
 
 const LOCAL_SELECTION_COLOR = "#3b82f6";
 const REMOTE_SELECTION_FALLBACK_COLOR = "#3b82f6";
+const TOOLBAR_HORIZONTAL_OFFSET = 10;
+const TOOLBAR_VERTICAL_OFFSET = 18;
 
 function CornerHandle({
   corner,
@@ -62,6 +66,34 @@ function CornerHandle({
   );
 }
 
+function ActionIconButton({
+  title,
+  onClick,
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      className="flex h-8 w-8 items-center justify-center border border-zinc-600 bg-zinc-900 text-zinc-200 shadow-sm transition hover:border-blue-500 hover:text-blue-400"
+      onPointerDown={(e) => {
+        e.stopPropagation();
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export function SelectionOverlay({
   nodes,
   selectedNodeId,
@@ -69,6 +101,8 @@ export function SelectionOverlay({
   users,
   transform,
   onResize,
+  onClone,
+  onDelete,
 }: Props) {
   const dragRef = useRef<{
     active: boolean;
@@ -153,6 +187,16 @@ export function SelectionOverlay({
     dragRef.current = null;
   }, []);
 
+  const handleClone = useCallback(() => {
+    if (!selectedNode) return;
+    onClone(selectedNode.id);
+  }, [selectedNode, onClone]);
+
+  const handleDelete = useCallback(() => {
+    if (!selectedNode) return;
+    onDelete(selectedNode.id);
+  }, [selectedNode, onDelete]);
+
   return (
     <div
       className="absolute inset-0 z-20 pointer-events-none"
@@ -224,6 +268,54 @@ export function SelectionOverlay({
               y={(selectedNode.y + selectedNode.height) * transform.zoom + transform.y}
               onDragStart={handleDragStart}
             />
+
+            <div
+              className="absolute flex flex-col gap-2"
+              style={{
+                left:
+                  (selectedNode.x + selectedNode.width) * transform.zoom +
+                  transform.x +
+                  TOOLBAR_HORIZONTAL_OFFSET,
+                top:
+                  selectedNode.y * transform.zoom +
+                  transform.y +
+                  TOOLBAR_VERTICAL_OFFSET,
+              }}
+            >
+              <ActionIconButton title="Clone node" onClick={handleClone}>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="9" y="9" width="13" height="13" />
+                  <rect x="2" y="2" width="13" height="13" />
+                </svg>
+              </ActionIconButton>
+              <ActionIconButton title="Delete node" onClick={handleDelete}>
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
+              </ActionIconButton>
+            </div>
           </div>
         </>
       )}
