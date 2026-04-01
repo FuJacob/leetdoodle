@@ -129,8 +129,17 @@ public class ContainerPool {
     public String borrow(String language) throws InterruptedException {
         var queue = pools.get(language);
         if (queue == null) throw new IllegalArgumentException("Unsupported language: " + language);
+        int availableBefore = queue.size();
+        long startedAt = System.currentTimeMillis();
         String containerId = queue.poll(30, TimeUnit.SECONDS);
-        if (containerId == null) throw new RuntimeException("Timed out waiting for a container");
+        long waitedMs = System.currentTimeMillis() - startedAt;
+        if (containerId == null) {
+            log.error("pool.borrow.timeout language={} waitedMs={} availableBefore={} availableAfter={}",
+                language, waitedMs, availableBefore, queue.size());
+            throw new RuntimeException("Timed out waiting for a container");
+        }
+        log.info("pool.borrow.ok language={} container={} waitedMs={} availableBefore={} availableAfter={}",
+            language, shortId(containerId), waitedMs, availableBefore, queue.size());
         return containerId;
     }
 
@@ -142,12 +151,18 @@ public class ContainerPool {
      * blocked waiting for a new container to warm up.
      */
     public void release(String language, String containerId) {
+        int availableBefore = pools.get(language).size();
         destroyContainer(containerId);
+        log.info("pool.release.destroyed language={} container={} availableBefore={}",
+            language, shortId(containerId), availableBefore);
+
         String image = IMAGES.get(language);
         refillExecutor.submit(() -> {
             try {
-                pools.get(language).add(createAndStart(language, image));
-                log.debug("Refilled pool for {}", language);
+                String replacement = createAndStart(language, image);
+                pools.get(language).add(replacement);
+                log.info("pool.release.refilled language={} replacement={} availableNow={}",
+                    language, shortId(replacement), pools.get(language).size());
             } catch (Exception e) {
                 log.error("Failed to refill pool for {}", language, e);
             }
@@ -176,6 +191,11 @@ public class ContainerPool {
         } catch (Exception e) {
             log.warn("Failed to remove container {}: {}", id.substring(0, 12), e.getMessage());
         }
+    }
+
+    private String shortId(String value) {
+        if (value == null || value.isBlank()) return "unknown";
+        return value.length() <= 12 ? value : value.substring(0, 12);
     }
 
     @PreDestroy

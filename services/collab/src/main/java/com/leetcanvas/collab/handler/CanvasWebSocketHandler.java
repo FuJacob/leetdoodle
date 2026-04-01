@@ -13,6 +13,8 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,6 +52,15 @@ import java.util.concurrent.ConcurrentHashMap;
            // needed
 public class CanvasWebSocketHandler extends TextWebSocketHandler {
 
+    private static final String[] USER_COLORS = {
+        "#3b82f6", // blue
+        "#10b981", // emerald
+        "#f59e0b", // amber
+        "#ef4444", // red
+        "#06b6d4", // cyan
+        "#f97316"  // orange
+    };
+
     /**
      * The room registry: canvasId → all active sessions in that canvas.
      *
@@ -82,6 +93,14 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * Needed to broadcast user_leave events when a connection closes.
      */
     private final Map<String, String> sessionToUserId = new ConcurrentHashMap<>();
+
+    /**
+     * Per-canvas presence state keyed by userId.
+     *
+     * In this app, userId is unique per tab/session, so we do not maintain
+     * per-user session ref-counts.
+     */
+    private final Map<String, CanvasPresenceState> canvasPresence = new ConcurrentHashMap<>();
 
     /**
      * In-memory CRDT op log per document.
@@ -118,6 +137,45 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      */
     private final ObjectMapper objectMapper;
 
+    private record CollabUser(String id, String color) {}
+
+    private static final class CanvasPresenceState {
+        private final Map<String, String> colorByUser = new HashMap<>();
+
+        synchronized CollabUser onJoin(String userId) {
+            String color = colorByUser.computeIfAbsent(userId, ignored -> nextColor());
+            return new CollabUser(userId, color);
+        }
+
+        synchronized boolean onLeave(String userId) {
+            return colorByUser.remove(userId) != null;
+        }
+
+        synchronized List<CollabUser> snapshotUsers() {
+            List<CollabUser> users = new ArrayList<>();
+            for (Map.Entry<String, String> entry : colorByUser.entrySet()) {
+                users.add(new CollabUser(entry.getKey(), entry.getValue()));
+            }
+            users.sort(java.util.Comparator.comparing(CollabUser::id));
+            return users;
+        }
+
+        synchronized boolean isEmpty() {
+            return colorByUser.isEmpty();
+        }
+
+        private String nextColor() {
+            Set<String> used = new HashSet<>(colorByUser.values());
+            for (String color : USER_COLORS) {
+                if (!used.contains(color)) {
+                    return color;
+                }
+            }
+            int index = colorByUser.size() % USER_COLORS.length;
+            return USER_COLORS[index];
+        }
+    }
+
     public CanvasWebSocketHandler(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
@@ -153,7 +211,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         switch (type) {
             // Join is special: it registers the session in a canvas room
             case "join" ->
-                handleJoin(session, objectMapper.treeToValue(root, ImmutableJoinMessage.class), message.getPayload());
+                handleJoin(session, objectMapper.treeToValue(root, ImmutableJoinMessage.class));
 
             // CRDT ops are logged + deduplicated + fanned out.
             // This gives us reconnection replay without changing the relay model.
@@ -180,8 +238,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * be silently lost. This is a race condition — a class of bug that only appears
      * under concurrent load and is notoriously hard to reproduce in testing.
      */
-    private void handleJoin(WebSocketSession session, JoinMessage msg, String rawPayload) throws Exception {
-        System.out.println("handleJoin is being called");
+    private void handleJoin(WebSocketSession session, JoinMessage msg) throws Exception {
         canvasSessions
                 .computeIfAbsent(msg.canvasId(), k -> ConcurrentHashMap.newKeySet())
                 .add(session);
@@ -191,10 +248,17 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         sessionToCanvas.put(session.getId(), msg.canvasId());
         sessionToUserId.put(session.getId(), msg.userId());
 
+        CanvasPresenceState presenceState =
+            canvasPresence.computeIfAbsent(msg.canvasId(), ignored -> new CanvasPresenceState());
+        CollabUser joinedUser = presenceState.onJoin(msg.userId());
+
         System.out.printf("User %s joined canvas %s (total sessions in canvas: %d)%n",
                 msg.userId(), msg.canvasId(), canvasSessions.get(msg.canvasId()).size());
 
-        broadcastToCanvas(session, rawPayload);
+        sendPresenceSnapshot(session, presenceState.snapshotUsers());
+
+        // userId is tab-unique, so every join is a distinct presence participant.
+        broadcastUserJoin(msg.canvasId(), session.getId(), joinedUser);
     }
 
     /**
@@ -307,9 +371,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         }
 
         TextMessage outbound = new TextMessage(objectMapper.writeValueAsString(response));
-        synchronized (session) {
-            session.sendMessage(outbound);
-        }
+        sendToSession(session, outbound);
     }
 
     /**
@@ -341,21 +403,59 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        TextMessage outbound = new TextMessage(payload);
+        broadcastToCanvas(canvasId, session.getId(), payload);
+    }
 
+    private void broadcastToCanvas(String canvasId, String senderSessionId, String payload) throws Exception {
+        TextMessage outbound = new TextMessage(payload);
         for (WebSocketSession peer : canvasSessions.getOrDefault(canvasId, Set.of())) {
             if (!peer.isOpen())
                 continue; // skip dead sessions
-            if (peer.getId().equals(session.getId()))
+            if (peer.getId().equals(senderSessionId))
                 continue; // don't echo to sender
 
             // WHY synchronized(peer)?
             // WebSocketSession.sendMessage() is NOT thread-safe. If two threads call
             // it on the same session concurrently, the WebSocket frames can get corrupted.
             // synchronized(peer) ensures only one thread sends to a given peer at a time.
-            synchronized (peer) {
-                peer.sendMessage(outbound);
-            }
+            sendToSession(peer, outbound);
+        }
+    }
+
+    private void sendPresenceSnapshot(WebSocketSession session, List<CollabUser> users) throws Exception {
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("type", "presence_snapshot");
+        ArrayNode usersNode = response.putArray("users");
+        for (CollabUser user : users) {
+            ObjectNode userNode = usersNode.addObject();
+            userNode.put("id", user.id());
+            userNode.put("color", user.color());
+        }
+        sendToSession(session, new TextMessage(objectMapper.writeValueAsString(response)));
+    }
+
+    private void broadcastUserJoin(String canvasId, String senderSessionId, CollabUser user) throws Exception {
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("type", "user_join");
+        ObjectNode userNode = response.putObject("user");
+        userNode.put("id", user.id());
+        userNode.put("color", user.color());
+        broadcastToCanvas(canvasId, senderSessionId, objectMapper.writeValueAsString(response));
+    }
+
+    private void broadcastUserLeave(String canvasId, String senderSessionId, String userId) throws Exception {
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("type", "user_leave");
+        response.put("userId", userId);
+        broadcastToCanvas(canvasId, senderSessionId, objectMapper.writeValueAsString(response));
+    }
+
+    private void sendToSession(WebSocketSession session, TextMessage message) throws Exception {
+        if (!session.isOpen()) {
+            return;
+        }
+        synchronized (session) {
+            session.sendMessage(message);
         }
     }
 
@@ -408,34 +508,34 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         if (canvasId == null)
             return; // session never joined, nothing to clean up
 
+        CanvasPresenceState presenceState = canvasPresence.get(canvasId);
+        boolean userRemovedFromPresence = false;
+        if (presenceState != null && userId != null) {
+            userRemovedFromPresence = presenceState.onLeave(userId);
+        }
+
         Set<WebSocketSession> sessions = canvasSessions.get(canvasId);
         if (sessions != null) {
             sessions.remove(session);
+        }
 
-            // Broadcast user_leave to remaining peers so they can clean up
-            // cursors/selections
-            if (userId != null && !sessions.isEmpty()) {
-                String payload = String.format("{\"type\":\"user_leave\",\"userId\":\"%s\"}", userId);
-                TextMessage outbound = new TextMessage(payload);
-                for (WebSocketSession peer : sessions) {
-                    if (!peer.isOpen())
-                        continue;
-                    try {
-                        synchronized (peer) {
-                            peer.sendMessage(outbound);
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Failed to send user_leave to peer: " + e.getMessage());
-                    }
-                }
+        if (userRemovedFromPresence && userId != null) {
+            try {
+                broadcastUserLeave(canvasId, session.getId(), userId);
+            } catch (Exception e) {
+                System.err.println("Failed to broadcast user_leave: " + e.getMessage());
             }
+        }
 
-            // If this was the last user, evict the canvas entry entirely.
-            // Without this, every canvas ever visited would accumulate in memory forever.
-            if (sessions.isEmpty()) {
-                canvasSessions.remove(canvasId);
-                System.out.println("Canvas " + canvasId + " is now empty, removed from registry");
-            }
+        // If this was the last active session in the canvas, evict room state.
+        // Without this, every canvas ever visited would accumulate in memory forever.
+        if (sessions != null && sessions.isEmpty()) {
+            canvasSessions.remove(canvasId);
+            canvasPresence.remove(canvasId);
+            System.out.println("Canvas " + canvasId + " is now empty, removed from registry");
+        } else if (presenceState != null && presenceState.isEmpty()) {
+            // Defensive cleanup if room state and presence state drift.
+            canvasPresence.remove(canvasId, presenceState);
         }
 
         System.out.println("Session closed: " + session.getId() + " (userId: " + userId + ", status: " + status + ")");

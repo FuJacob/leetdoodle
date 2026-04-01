@@ -17,7 +17,7 @@ interface Props {
 type Corner = "nw" | "ne" | "sw" | "se";
 
 const LOCAL_SELECTION_COLOR = "#3b82f6";
-const REMOTE_SELECTION_FALLBACK_COLOR = "#3b82f6";
+const REMOTE_SELECTION_FALLBACK_COLOR = "#71717a";
 const TOOLBAR_HORIZONTAL_OFFSET = 10;
 const TOOLBAR_VERTICAL_OFFSET = 18;
 

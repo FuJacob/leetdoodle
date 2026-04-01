@@ -194,6 +194,8 @@ export function CodeNodeRenderer({
     if (!connectedProblem || connectedProblem.data.status !== "loaded") return;
     if (intervalRef.current) return; // already polling
 
+    const codeForSubmission = viewRef.current?.state.doc.toString() ?? node.data.content;
+
     const { questionId } = connectedProblem.data;
     const existingResults = connectedResults;
     const spawnedNodeId = existingResults ? undefined : onSpawn("test-results", node.id);
@@ -216,7 +218,7 @@ export function CodeNodeRenderer({
           questionId,
           userId: "anonymous",
           language: node.data.language,
-          code: node.data.content,
+          code: codeForSubmission,
         }),
       });
       if (!postRes.ok) throw new Error(`Submit failed: ${postRes.status}`);

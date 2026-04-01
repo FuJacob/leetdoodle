@@ -1,35 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Transform } from "../types";
 import type {
+  CanvasPresenceUser,
   CanvasEventHandlers,
   CanvasInboundEvent,
   CanvasOutboundEvent,
 } from "../../shared/events";
 import { screenToWorld } from "../utils/coordinates";
 
-const USER_COLORS = [
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#06b6d4",
-  "#f97316",
-];
-
-function getUserColorIndex(userId: string): number {
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) {
-    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash) % USER_COLORS.length;
-}
-
-function buildCollabUser(userId: string): CollabUser {
-  return {
-    id: userId,
-    color: USER_COLORS[getUserColorIndex(userId)],
-  };
-}
+const CURSOR_MOVE_UPDATE_INTERVAL = 10;
 
 export interface RemoteCursor {
   userId: string;
@@ -37,10 +16,7 @@ export interface RemoteCursor {
   y: number;
 }
 
-export interface CollabUser {
-  id: string;
-  color: string;
-}
+export type CollabUser = CanvasPresenceUser;
 
 export function useCanvasCollab(
   canvasId: string,
@@ -50,11 +26,13 @@ export function useCanvasCollab(
   handlers: CanvasEventHandlers = {},
 ) {
   const [cursors, setCursors] = useState<Map<string, RemoteCursor>>(new Map());
-  const [users, setUsers] = useState<CollabUser[]>(() => [buildCollabUser(userId)]);
+  const [users, setUsers] = useState<CollabUser[]>([]);
   // Active in-progress strokes from remote users, keyed by userId.
   // Points are world-space, accumulated as draw_points batches arrive.
   // Cleared when draw_end arrives or the user leaves.
-  const [remoteStrokes, setRemoteStrokes] = useState<Map<string, Array<[number, number]>>>(new Map());
+  const [remoteStrokes, setRemoteStrokes] = useState<
+    Map<string, Array<[number, number]>>
+  >(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const lastCursorSentAt = useRef(0);
 
@@ -66,7 +44,7 @@ export function useCanvasCollab(
 
     ws.onopen = () => {
       // Reset local collab state when a fresh socket session is established.
-      setUsers([buildCollabUser(userId)]);
+      setUsers([]);
       setCursors(new Map());
       setRemoteStrokes(new Map());
 
@@ -90,24 +68,20 @@ export function useCanvasCollab(
 
       switch (msg.type) {
         case "presence_snapshot":
-          setUsers(() => {
-            const next = new Set<string>([userId]);
-            console.log(msg.userIds);
-            for (const id of msg.userIds) {
-              next.add(id);
-            }
-            const ordered = Array.from(next)
-              .filter((id) => id !== userId)
-              .sort();
-            return [userId, ...ordered].map(buildCollabUser);
-          });
+          setUsers(() =>
+            [...msg.users].sort((a, b) => {
+              if (a.id === userId) return -1;
+              if (b.id === userId) return 1;
+              return a.id.localeCompare(b.id);
+            }),
+          );
           break;
 
         case "user_join":
-          handlersRef.current.onUserJoin?.(msg.userId);
+          handlersRef.current.onUserJoin?.(msg.user);
           setUsers((prev) => {
-            if (prev.some((user) => user.id === msg.userId)) return prev;
-            return [...prev, buildCollabUser(msg.userId)].sort((a, b) => {
+            const others = prev.filter((user) => user.id !== msg.user.id);
+            return [...others, msg.user].sort((a, b) => {
               if (a.id === userId) return -1;
               if (b.id === userId) return 1;
               return a.id.localeCompare(b.id);
@@ -199,7 +173,7 @@ export function useCanvasCollab(
       // StrictMode-safe: only clear if this exact socket is still current.
       if (wsRef.current === ws) wsRef.current = null;
 
-      setUsers([buildCollabUser(userId)]);
+      setUsers([]);
       setCursors(new Map());
       setRemoteStrokes(new Map());
     };
@@ -228,7 +202,7 @@ export function useCanvasCollab(
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       const now = performance.now();
-      if (now - lastCursorSentAt.current < 20) return;
+      if (now - lastCursorSentAt.current < CURSOR_MOVE_UPDATE_INTERVAL) return;
       lastCursorSentAt.current = now;
 
       const rect = viewportRef.current?.getBoundingClientRect();

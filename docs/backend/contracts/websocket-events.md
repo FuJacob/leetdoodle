@@ -26,7 +26,13 @@ Server behavior:
 
 - Adds session to room (`canvasSessions`).
 - Tracks reverse indices (`sessionToCanvas`, `sessionToUserId`).
-- Broadcasts join envelope to peers in the same canvas.
+- Sends `presence_snapshot` to the newly joined session.
+- Broadcasts `user_join` to peers in the same canvas.
+
+Presence identity model:
+
+- `userId` is currently tab/session-scoped (one browser tab = one participant).
+- Presence events represent active sessions, not deduplicated people.
 
 ## Event Types (Client -> Server)
 
@@ -47,10 +53,10 @@ Primary outbound events (from `frontend/src/shared/events.ts`):
 
 ## Event Types (Server -> Client)
 
-- `presence_snapshot` (`userIds[]`)
-- `user_join` (`userId`)
+- `presence_snapshot` (`users[]`, each item: `{ id, color }`)
+- `user_join` (`user`, shape: `{ id, color }`)
 - mirrored relay events for cursor/node/edge/draw updates with sender `userId`
-- `user_leave` (`userId`)
+- `user_leave` (`userId`, tab/session participant id)
 - `sync_response` (`docId`, `ops[]`)
 
 ## CRDT Replay Behavior

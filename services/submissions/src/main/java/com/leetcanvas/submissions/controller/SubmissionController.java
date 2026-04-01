@@ -4,6 +4,7 @@ import com.leetcanvas.submissions.model.Submission;
 import com.leetcanvas.submissions.service.SubmissionService;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.UUID;
 
@@ -38,9 +39,11 @@ public class SubmissionController {
 
     /** GET /api/submissions/{id} — poll for status + result */
     @GetMapping("/{id}")
-    public Submission getById(@PathVariable("id") UUID id) {
-        return service.getById(id);
+    public SubmissionStatusResponse getById(@PathVariable("id") UUID id) {
+        Submission submission = service.getById(id);
+        return new SubmissionStatusResponse(submission.status(), submission.result());
     }
 
     public record SubmitRequest(int questionId, String userId, String language, String code) {}
+    public record SubmissionStatusResponse(String status, @Nullable String result) {}
 }

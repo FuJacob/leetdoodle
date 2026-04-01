@@ -1,6 +1,5 @@
 package com.leetcanvas.worker.docker;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.core.command.ExecStartResultCallback;
 import org.slf4j.Logger;
@@ -35,7 +34,6 @@ public class EvalRunner {
     private int timeoutSeconds;
 
     private final ContainerPool pool;
-    private final ObjectMapper  objectMapper = new ObjectMapper();
 
     public EvalRunner(ContainerPool pool) {
         this.pool = pool;
@@ -74,18 +72,26 @@ public class EvalRunner {
      *
      * We stop on first failure (fail-fast) — same behaviour as LeetCode.
      */
-    public EvalResult run(String language, String code, List<TestCase> testCases) throws Exception {
+    public EvalResult run(String submissionId, String language, String code, List<TestCase> testCases)
+            throws Exception {
         String containerId = pool.borrow(language);
+        log.info("eval.docker.start submission={} language={} container={} testCases={}",
+            submissionId, language, shortId(containerId), testCases.size());
         try {
-            return runInContainer(containerId, language, code, testCases);
+            EvalResult result = runInContainer(submissionId, containerId, language, code, testCases);
+            log.info("eval.docker.finish submission={} container={} status={}",
+                submissionId, shortId(containerId), result.status());
+            return result;
         } finally {
             // Always release — even on exception — so the pool doesn't drain
             pool.release(language, containerId);
+            log.info("eval.docker.release submission={} language={} container={}",
+                submissionId, language, shortId(containerId));
         }
     }
 
     private EvalResult runInContainer(
-            String containerId, String language,
+            String submissionId, String containerId, String language,
             String code, List<TestCase> testCases) throws Exception {
 
         List<CaseResult> cases = new ArrayList<>();
@@ -98,6 +104,8 @@ public class EvalRunner {
             if (exec.timedOut()) {
                 // Hard stop — remaining cases never ran, include them as not-run
                 String msg = "Exceeded " + timeoutSeconds + "s limit";
+                log.warn("eval.case.timeout submission={} container={} caseIndex={} timeoutSeconds={}",
+                    submissionId, shortId(containerId), i, timeoutSeconds);
                 cases.add(new CaseResult(tc.input(), tc.expectedOutput(), null, false, msg));
                 addNotRunCases(cases, testCases, i + 1);
                 return new EvalResult("TIME_LIMIT_EXCEEDED", cases, msg);
@@ -106,6 +114,8 @@ public class EvalRunner {
             if (exec.exitCode() != 0) {
                 // Process crashed — remaining cases never ran
                 String err = exec.stderr();
+                log.warn("eval.case.runtime_error submission={} container={} caseIndex={} exitCode={} stderr={}",
+                    submissionId, shortId(containerId), i, exec.exitCode(), err);
                 cases.add(new CaseResult(tc.input(), tc.expectedOutput(), null, false, err));
                 addNotRunCases(cases, testCases, i + 1);
                 return new EvalResult("RUNTIME_ERROR", cases, err);
@@ -169,6 +179,7 @@ public class EvalRunner {
 
         var stdout = new ByteArrayOutputStream();
         var stderr = new ByteArrayOutputStream();
+        long startedAt = System.currentTimeMillis();
 
         boolean finished = pool.docker()
             .execStartCmd(exec.getId())
@@ -180,12 +191,21 @@ public class EvalRunner {
             .exec()
             .getExitCodeLong();
 
+        long elapsedMs = System.currentTimeMillis() - startedAt;
+        log.debug("eval.exec.complete container={} execId={} elapsedMs={} finished={} exitCode={}",
+            shortId(containerId), shortId(exec.getId()), elapsedMs, finished, exitCode);
+
         return new ExecResult(
             stdout.toString(),
             stderr.toString(),
             exitCode != null ? exitCode.intValue() : -1,
             !finished
         );
+    }
+
+    private String shortId(String value) {
+        if (value == null || value.isBlank()) return "unknown";
+        return value.length() <= 12 ? value : value.substring(0, 12);
     }
 
     private record ExecResult(String stdout, String stderr, int exitCode, boolean timedOut) {}

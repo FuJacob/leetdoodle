@@ -34,5 +34,5 @@ import org.immutables.value.Value;
 public interface JoinMessage {
     String type();      // always "join" — used to route the message in the handler
     String canvasId();  // which canvas room to join
-    String userId();    // who is joining
+    String userId();    // tab/session-scoped participant id
 }

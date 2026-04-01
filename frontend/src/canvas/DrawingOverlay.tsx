@@ -8,7 +8,7 @@ interface Props {
   transform: Transform;
 }
 
-const DEFAULT_STROKE_COLOR = "#3b82f6";
+const DEFAULT_STROKE_COLOR = "#71717a";
 
 export function DrawingOverlay({ remoteStrokes, users, transform }: Props) {
   const usersById = useMemo(

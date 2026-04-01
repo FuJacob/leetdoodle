@@ -44,6 +44,8 @@ public class EvalConsumer {
      */
     @RabbitListener(queues = RabbitConfig.QUEUE)
     public void handle(EvalJob job) {
+        long startedAt = System.currentTimeMillis();
+
         if (!isValid(job)) {
             // Malformed payloads are non-retryable (usually serialization/config drift).
             // Returning without throwing ACKs the message so it does not poison the queue.
@@ -56,19 +58,27 @@ public class EvalConsumer {
 
         try {
             List<TestCase> testCases = testCaseReader.findByProblemId(job.problemId());
+            log.info("Loaded {} test cases for submission {}", testCases.size(), job.submissionId());
+
             if (testCases.isEmpty()) {
-                log.warn("No test cases for problem {}", job.problemId());
+                log.warn("No test cases for submission {} (problem={})",
+                    job.submissionId(), job.problemId());
                 resultWriter.write(job.submissionId(),
                     new EvalResult("RUNTIME_ERROR", Collections.emptyList(), "No test cases found for this problem"));
                 return;
             }
 
-            EvalResult result = runner.run(job.language(), job.code(), testCases);
+            log.info("Dispatching submission {} to Docker runner", job.submissionId());
+            EvalResult result = runner.run(job.submissionId(), job.language(), job.code(), testCases);
+            log.info("Docker runner finished for submission {} with status {}",
+                job.submissionId(), result.status());
+
             resultWriter.write(job.submissionId(), result);
 
             long passed = result.cases().stream().filter(EvalRunner.CaseResult::passed).count();
-            log.info("Submission {} → {} ({}/{})",
-                job.submissionId(), result.status(), passed, result.cases().size());
+            long elapsedMs = System.currentTimeMillis() - startedAt;
+            log.info("Submission {} → {} ({}/{}) in {} ms",
+                job.submissionId(), result.status(), passed, result.cases().size(), elapsedMs);
 
         } catch (Exception e) {
             log.error("Eval failed for submission {}", job.submissionId(), e);

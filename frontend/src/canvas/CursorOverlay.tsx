@@ -8,7 +8,7 @@ interface Props {
   transform: Transform;
 }
 
-const DEFAULT_CURSOR_COLOR = "#3b82f6";
+const DEFAULT_CURSOR_COLOR = "#71717a";
 
 export function CursorOverlay({ cursors, users, transform }: Props) {
   const usersById = useMemo(
