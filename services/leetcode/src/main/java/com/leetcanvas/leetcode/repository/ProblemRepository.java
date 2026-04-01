@@ -94,12 +94,14 @@ public class ProblemRepository {
                 question_id, slug, title, content, difficulty,
                 likes, dislikes, category, is_paid_only,
                 has_solution, has_video_solution, url, solution_content,
-                hints, similar_questions, stats, company_tags
+                hints, similar_questions, stats, company_tags,
+                prompt, entry_point
             ) VALUES (
                 :questionId, :slug, :title, :content, :difficulty,
                 :likes, :dislikes, :category, :isPaidOnly,
                 :hasSolution, :hasVideoSolution, :url, :solutionContent,
-                CAST(:hints AS jsonb), :similarQuestions, :stats, :companyTags
+                CAST(:hints AS jsonb), :similarQuestions, :stats, :companyTags,
+                :prompt, :entryPoint
             ) RETURNING id
             """,
             new MapSqlParameterSource()
@@ -119,7 +121,9 @@ public class ProblemRepository {
                 .addValue("hints",            hintsJson)
                 .addValue("similarQuestions",  p.similarQuestions())
                 .addValue("stats",            p.stats())
-                .addValue("companyTags",      p.companyTags()),
+                .addValue("companyTags",      p.companyTags())
+                .addValue("prompt",           p.prompt())
+                .addValue("entryPoint",       p.entryPoint()),
             Integer.class
         );
 
@@ -198,6 +202,8 @@ public class ProblemRepository {
             .similarQuestions(rs.getString("similar_questions"))
             .stats(rs.getString("stats"))
             .companyTags(rs.getString("company_tags"))
+            .prompt(rs.getString("prompt"))
+            .entryPoint(rs.getString("entry_point"))
             .build();
     }
 

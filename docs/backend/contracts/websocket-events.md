@@ -48,7 +48,7 @@ Primary outbound events (from `frontend/src/shared/events.ts`):
 - `node_select` (`userId`, `nodeId|null`)
 - `crdt_op` (`docId`, `op`)
 - `sync_request` (`docId`, `stateVector`)
-- `draw_points` (`points`)
+- `draw_points` (`points`, `thickness`)
 - `draw_end`
 
 ## Event Types (Server -> Client)

@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { IconPlus, IconX } from "@tabler/icons-react";
 import type {
   CanvasNode,
   NodeType,
@@ -7,12 +8,7 @@ import type {
 } from "../../shared/nodes";
 import { extractSlug, parseStats, difficultyClass } from "./utils";
 import { useNodeContentSizeSync } from "../../canvas/hooks/useNodeContentSizeSync";
-
-const NODE_OPTIONS: { type: NodeType; label: string }[] = [
-  { type: "note", label: "Note" },
-  { type: "problem", label: "Problem" },
-  { type: "code", label: "Code" },
-];
+import { NODE_CONTROL_OPTIONS } from "../../canvas/ui/controlOptions";
 
 const LEETCODE_SERVICE = "http://localhost:8081";
 const MIN_NODE_WIDTH = 100;
@@ -86,6 +82,7 @@ export function ProblemNodeRenderer({
         likes: p.likes,
         dislikes: p.dislikes,
         stats: p.stats ?? null,
+        starterCode: p.prompt ?? null,
       };
       onUpdate(node.id, { data });
     } catch {
@@ -207,10 +204,11 @@ export function ProblemNodeRenderer({
         {isHovering && !showAddNodePanel && (
           <div className="flex justify-center">
             <button
-              className="border border-zinc-700 bg-zinc-900 px-3 py-1 text-[10px] text-zinc-400"
+              className="flex items-center gap-1 border border-zinc-700 bg-zinc-900 px-3 py-1 text-[10px] text-zinc-400 transition hover:border-blue-500 hover:text-blue-400"
               onClick={handleAddNode}
             >
-              + add node
+              <IconPlus size={12} stroke={2} />
+              <span>Add node</span>
             </button>
           </div>
         )}
@@ -222,21 +220,23 @@ export function ProblemNodeRenderer({
           >
             <button
               onClick={handleCloseAddNodePanel}
-              className="absolute top-1 right-1 text-zinc-500 hover:text-zinc-300 text-[10px]"
+              className="absolute top-1 right-1 text-zinc-500 transition hover:text-zinc-300"
+              aria-label="Close add node panel"
             >
-              ✕
+              <IconX size={12} stroke={2} />
             </button>
             <div className="flex gap-2 pr-4">
-              {NODE_OPTIONS.map(({ type, label }) => (
+              {NODE_CONTROL_OPTIONS.map(({ type, label, Icon }) => (
                 <button
                   key={type}
                   onClick={() => {
                     onSpawn(type, node.id);
                     handleCloseAddNodePanel();
                   }}
-                  className="border border-zinc-700 bg-zinc-900 px-2 py-1 text-zinc-200 hover:bg-zinc-700"
+                  className="flex items-center gap-1 border border-zinc-700 bg-zinc-900 px-2 py-1 text-zinc-200 transition hover:border-blue-500 hover:text-blue-400"
                 >
-                  {label}
+                  <Icon size={13} stroke={1.8} />
+                  <span>{label}</span>
                 </button>
               ))}
             </div>

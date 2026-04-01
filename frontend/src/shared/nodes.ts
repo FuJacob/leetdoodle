@@ -52,6 +52,7 @@ export type ProblemData =
       likes: number;
       dislikes: number;
       stats: string | null; // raw JSON string from the API
+      starterCode: string | null;
     };
 
 export interface ProblemNode extends CanvasNodeBase {
@@ -167,7 +168,7 @@ export function createCodeNode(x: number, y: number): CodeNode {
     y,
     width: 400,
     height: 250,
-    data: { content: '', language: 'javascript' },
+    data: { content: '', language: 'python' },
   };
 }
 

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+option java_package = "com.leetcanvas.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "LeetcodeServiceProto";
+
+/*
+ * ProblemService: the leetcode-service exposes this gRPC endpoint so the
+ * worker can fetch everything it needs (eval boilerplate + test cases)
+ * in one call, without coupling the worker to the leetcode DB schema.
+ *
+ * WHY gRPC INSTEAD OF REST?
+ * - Strongly-typed contract: the .proto file IS the API spec. Both sides
+ *   fail to compile if they disagree on field names or types.
+ * - Binary encoding: protobuf is more compact than JSON — matters for
+ *   prompts that can be several KB each.
+ * - Streaming-ready: if we later want to stream test results back in real
+ *   time, gRPC supports that natively; REST would need Server-Sent Events.
+ */
+service ProblemService {
+  rpc GetProblemEval(GetProblemEvalRequest) returns (GetProblemEvalResponse);
+}
+
+message GetProblemEvalRequest {
+  // Internal problems.id (not the LeetCode question_id)
+  int32 problem_id = 1;
+}
+
+message GetProblemEvalResponse {
+  // Python boilerplate injected at the top of every eval script:
+  // imports, ListNode, TreeNode, helper functions, etc.
+  string prompt = 1;
+
+  // How to call the user's solution, e.g. "Solution().twoSum"
+  string entry_point = 2;
+
+  repeated TestCaseProto test_cases = 3;
+}
+
+message TestCaseProto {
+  // Python keyword-argument string, e.g. "nums = [2,7,11,15], target = 9"
+  string input = 1;
+
+  // repr() of the expected return value, e.g. "[0, 1]"
+  string expected_output = 2;
+}

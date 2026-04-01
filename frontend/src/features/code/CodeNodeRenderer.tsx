@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
 import { EditorView, basicSetup } from "codemirror";
-import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
 import type { TextEdit } from "../../shared/crdt";
 import type {
@@ -38,14 +37,8 @@ interface Props {
   onTextEdits: (nodeId: string, edits: TextEdit[]) => void;
 }
 
-function getLanguageExtension(lang: string) {
-  switch (lang) {
-    case "python":
-      return python();
-    case "javascript":
-    default:
-      return javascript();
-  }
+function getLanguageExtension(_lang: string) {
+  return python();
 }
 
 function isProblemNode(node: CanvasNode | undefined): node is ProblemNode {
@@ -118,6 +111,16 @@ export function CodeNodeRenderer({
     }
     return null;
   }, [edges, nodes, node.id]);
+
+  const starterCode =
+    connectedProblem?.data.status === "loaded"
+      ? (connectedProblem.data.starterCode ?? null)
+      : null;
+
+  useEffect(() => {
+    if (!starterCode) return;
+    onUpdate(node.id, { data: { content: starterCode, language: "python" } });
+  }, [starterCode, node.id, onUpdate]);
 
   const canRun = !!connectedProblem;
   const isRunning = connectedResults?.data.runState === "running";

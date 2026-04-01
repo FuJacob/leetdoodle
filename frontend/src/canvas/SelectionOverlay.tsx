@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef } from "react";
+import { IconCopy, IconTrash } from "@tabler/icons-react";
 import type { CanvasNode } from "../shared/nodes";
 import type { CollabUser } from "./hooks/useCanvasCollab";
 import type { Transform } from "./types";
@@ -283,37 +284,10 @@ export function SelectionOverlay({
               }}
             >
               <ActionIconButton title="Clone node" onClick={handleClone}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="9" y="9" width="13" height="13" />
-                  <rect x="2" y="2" width="13" height="13" />
-                </svg>
+                <IconCopy size={16} stroke={2} />
               </ActionIconButton>
               <ActionIconButton title="Delete node" onClick={handleDelete}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4h8v2" />
-                  <path d="M19 6l-1 14H6L5 6" />
-                  <path d="M10 11v6" />
-                  <path d="M14 11v6" />
-                </svg>
+                <IconTrash size={16} stroke={2} />
               </ActionIconButton>
             </div>
           </div>

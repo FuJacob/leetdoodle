@@ -28,6 +28,7 @@ export function useDrawToolController({
   const lastDrawFlushRef = useRef(0);
   const localPolylineRef = useRef<SVGPolylineElement | null>(null);
   const thicknessRef = useRef(thickness);
+  const activeStrokeThicknessRef = useRef(thickness);
 
   useEffect(() => {
     thicknessRef.current = thickness;
@@ -41,6 +42,10 @@ export function useDrawToolController({
       .map(([x, y]) => `${x * t.zoom + t.x},${y * t.zoom + t.y}`)
       .join(" ");
     el.setAttribute("points", pointsStr);
+    el.setAttribute(
+      "stroke-width",
+      String(activeStrokeThicknessRef.current * t.zoom),
+    );
   }, [transformRef]);
 
   const toWorldPoint = useCallback(
@@ -64,6 +69,7 @@ export function useDrawToolController({
       isDrawingRef.current = true;
       allDrawPointsRef.current = [];
       pendingDrawPointsRef.current = [];
+      activeStrokeThicknessRef.current = thicknessRef.current;
 
       const pt = toWorldPoint(e);
       if (!pt) return;
@@ -93,7 +99,11 @@ export function useDrawToolController({
       ) {
         lastDrawFlushRef.current = now;
         const batch = pendingDrawPointsRef.current.splice(0);
-        send({ type: "draw_points", points: batch });
+        send({
+          type: "draw_points",
+          points: batch,
+          thickness: activeStrokeThicknessRef.current,
+        });
       }
     },
     [collabPointerMove, toWorldPoint, updateLocalPolyline, send],
@@ -110,7 +120,11 @@ export function useDrawToolController({
 
       if (pendingDrawPointsRef.current.length > 0) {
         const trailing = pendingDrawPointsRef.current.splice(0);
-        send({ type: "draw_points", points: trailing });
+        send({
+          type: "draw_points",
+          points: trailing,
+          thickness: activeStrokeThicknessRef.current,
+        });
       }
       send({ type: "draw_end" });
 
@@ -118,7 +132,7 @@ export function useDrawToolController({
 
       const pts = allDrawPointsRef.current;
       if (pts.length < 2) return;
-      onCommitStroke(pts, thicknessRef.current);
+      onCommitStroke(pts, activeStrokeThicknessRef.current);
     },
     [onCommitStroke, send],
   );
@@ -145,7 +159,7 @@ export function useDrawToolController({
             ref={localPolylineRef}
             fill="none"
             stroke="white"
-            strokeWidth={thickness}
+            strokeWidth={thickness * transformRef.current.zoom}
             strokeLinecap="round"
             strokeLinejoin="round"
           />

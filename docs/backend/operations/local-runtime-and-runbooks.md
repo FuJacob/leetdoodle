@@ -11,7 +11,8 @@ Infrastructure stack (`infra/compose/docker-compose.dev.yml`):
 Service ports:
 
 - collab: `8080`
-- leetcode-service: `8081`
+- leetcode-service HTTP: `8081`
+- leetcode-service gRPC: `9090`
 - submissions: `8082`
 - worker: `8083`
 
@@ -26,9 +27,11 @@ Helper scripts:
 ## Core Operational Dependencies
 
 - Debezium requires Postgres logical replication (`wal_level=logical`).
+- Debezium Postgres connector uses `pgoutput` logical decoding plugin.
 - Debezium offset file persists in `debezium-data` volume.
 - Rabbit queue `eval.queue` should exist before worker consumes (both services declare topology).
 - Worker requires Docker socket access (`worker.docker.host`).
+- Worker requires healthy gRPC channel to leetcode-service (`grpc.client.leetcode-service.*`).
 
 ## Runbook: Submission Stuck in `PENDING`
 
@@ -43,7 +46,14 @@ Helper scripts:
 1. Inspect Docker host health and container creation latency.
 2. Confirm pool refill is functioning (`worker.pool.size` behavior).
 3. Check Rabbit prefetch and queue backlog.
-4. Check DB query latency for `test_cases` and result updates.
+4. Check leetcode-service gRPC latency/errors (`GetProblemEval`) and submission-result DB write latency.
+
+## Runbook: Terminal `RUNTIME_ERROR` with "No eval data for problem_id=..."
+
+1. Verify `problems.prompt` and `problems.entry_point` are populated for that `problem_id`.
+2. Verify `test_cases` rows exist for that `problem_id`.
+3. Check leetcode-service logs for `grpc.getProblemEval.not_found`.
+4. If data is missing, re-run/repair seed pipeline for eval metadata inputs.
 
 ## Runbook: Collab Sync Inconsistency
 

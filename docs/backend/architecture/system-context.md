@@ -25,6 +25,7 @@ flowchart LR
     FE <-->|/ws realtime| COL
     FE <-->|/api/problems| LEE
     FE <-->|/api/submissions| SUB
+    WRK <-->|gRPC :9090| LEE
 
     LEE <--> PG
     SUB <--> PG
@@ -45,6 +46,6 @@ flowchart LR
 ## Key Responsibility Boundaries
 
 - `collab` owns low-latency multi-user event relay.
-- `leetcode-service` owns problem catalog and test-case retrieval.
+- `leetcode-service` owns problem catalog and internal eval-data serving (gRPC).
 - `submissions` owns submission creation lifecycle and outbox write.
 - `worker` owns async evaluation execution and result persistence.

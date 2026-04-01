@@ -22,7 +22,7 @@ export type CanvasOutboundEvent =
   | { type: "node_select"; userId: string; nodeId: string | null }
   | { type: "crdt_op"; docId: string; op: CrdtOp }
   | { type: "sync_request"; docId: string; stateVector: StateVector }
-  | { type: "draw_points"; points: Array<[number, number]> }
+  | { type: "draw_points"; points: Array<[number, number]>; thickness: number }
   | { type: "draw_end" };
 
 /**
@@ -47,7 +47,12 @@ export type CanvasInboundEvent =
   | { type: "user_leave"; userId: string }
   | { type: "crdt_op"; userId: string; docId: string; op: CrdtOp }
   | { type: "sync_response"; docId: string; ops: CrdtOp[] }
-  | { type: "draw_points"; userId: string; points: Array<[number, number]> }
+  | {
+      type: "draw_points";
+      userId: string;
+      points: Array<[number, number]>;
+      thickness: number;
+    }
   | { type: "draw_end"; userId: string };
 
 export interface CanvasEventHandlers {

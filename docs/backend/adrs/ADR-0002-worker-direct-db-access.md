@@ -1,11 +1,11 @@
 # ADR-0002: Worker Uses Direct DB Access for Eval Critical Path
 
-- Status: Accepted
+- Status: Superseded (read path) by ADR-0004; write path still applies
 - Date: 2026-03-30
 
 ## Context
 
-Worker needs to:
+At the time of this decision, worker needed to:
 
 - fetch test cases by `problemId`
 - write status/result by `submissionId`
@@ -15,6 +15,11 @@ This can be done either through service-to-service HTTP APIs or direct SQL acces
 ## Decision
 
 Use direct JDBC access from worker to Postgres for both reads and writes.
+
+Update:
+
+- Read path has moved to internal gRPC (`leetcode-service` `GetProblemEval`) in ADR-0004.
+- Write path remains direct JDBC (`SubmissionResultWriter`).
 
 ## Consequences
 

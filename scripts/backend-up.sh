@@ -9,6 +9,9 @@ SERVICES=(collab leetcode submissions worker)
 
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
+echo "Installing shared grpc-api module (and parent POM) into local Maven repo..."
+mvn -f "$ROOT/services/pom.xml" -pl grpc-api -am install -DskipTests
+
 echo "Starting infra..."
 "$ROOT/scripts/dev-up.sh"
 

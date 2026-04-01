@@ -136,16 +136,20 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
       >
         {/* Case selector row — shared between both modes */}
         {hasCases && (
-          <div className="mb-3 flex flex-wrap gap-1">
-            {data.cases.map((c, idx) => (
-              <CaseTab
-                key={idx}
-                label={`Case ${idx + 1}`}
-                active={idx === data.selectedCaseIndex}
-                passed={data.mode === "result" ? c.passed : null}
-                onClick={() => updateResultsData(node, onUpdate, { selectedCaseIndex: idx })}
-              />
-            ))}
+          <div className="mb-3 max-h-[3.25rem] overflow-y-auto overflow-x-hidden pr-1">
+            <div className="flex flex-wrap content-start gap-1">
+              {data.cases.map((c, idx) => (
+                <CaseTab
+                  key={idx}
+                  label={`Case ${idx + 1}`}
+                  active={idx === data.selectedCaseIndex}
+                  passed={data.mode === "result" ? c.passed : null}
+                  onClick={() =>
+                    updateResultsData(node, onUpdate, { selectedCaseIndex: idx })
+                  }
+                />
+              ))}
+            </div>
           </div>
         )}
 

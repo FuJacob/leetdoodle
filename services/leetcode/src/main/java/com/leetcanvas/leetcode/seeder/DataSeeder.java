@@ -47,11 +47,11 @@ public class DataSeeder implements ApplicationRunner {
      */
     private static final int BATCH_SIZE = 200;
 
-    @Value("${leetcode.seeder.json-path}")
-    private String jsonPath;
+    @Value("${leetcode.seeder.official-questions-path}")
+    private String officialQuestionsPath;
 
-    @Value("${leetcode.seeder.dataset-path:classpath:test-cases.jsonl}")
-    private String datasetPath;
+    @Value("${leetcode.seeder.eval-metadata-path}")
+    private String evalMetadataPath;
 
     private final ProblemRepository problemRepository;
     private final TagRepository tagRepository;
@@ -95,44 +95,44 @@ public class DataSeeder implements ApplicationRunner {
         }
 
         // ── Phase 0: load source datasets (fail fast if anything is malformed) ──
-        List<RawItem> officialItems = loadOfficialItems();
-        Map<String, RawQuestion> testCasesByTaskId = loadTestCaseDataset();
+        List<RawItem> officialQuestionItems = loadOfficialQuestionItems();
+        Map<String, RawQuestion> evalMetadataBySlug = loadEvalMetadataBySlug();
 
         // ── Phase 1: seed tags ───────────────────────────────────────────────
-        Map<String, Integer> tagNameToId = seedTags(officialItems);
+        Map<String, Integer> tagNameToId = seedTags(officialQuestionItems);
 
         // ── Phase 2: seed problems (+ matching test cases) ───────────────────
-        int total = seedProblemsInBatches(officialItems, tagNameToId, testCasesByTaskId);
+        int total = seedProblemsInBatches(officialQuestionItems, tagNameToId, evalMetadataBySlug);
         log.info("Seeding complete. {} problems inserted.", total);
     }
 
-    private List<RawItem> loadOfficialItems() throws Exception {
-        Resource officialResource = ctx.getResource(jsonPath);
-        log.info("Loading official problems from {}", officialResource.getDescription());
+    private List<RawItem> loadOfficialQuestionItems() throws Exception {
+        Resource officialResource = ctx.getResource(officialQuestionsPath);
+        log.info("Loading official questions from {}", officialResource.getDescription());
 
         List<RawItem> officialItems = objectMapper.readValue(
                 officialResource.getInputStream(),
                 new TypeReference<>() {
                 });
-        log.info("Parsed {} official problems", officialItems.size());
+        log.info("Parsed {} official questions", officialItems.size());
         return officialItems;
     }
 
-    private Map<String, RawQuestion> loadTestCaseDataset() throws Exception {
-        // JSONL dataset with test cases.
+    private Map<String, RawQuestion> loadEvalMetadataBySlug() throws Exception {
+        // JSONL dataset with eval metadata (prompt + entry_point + test cases).
         // If duplicated task_id rows exist, later rows overwrite earlier rows.
-        Map<String, RawQuestion> testCasesByTaskId = new LinkedHashMap<>();
+        Map<String, RawQuestion> evalMetadataBySlug = new LinkedHashMap<>();
 
-        Resource datasetResource = ctx.getResource(datasetPath);
-        log.info("Loading test-case dataset from {}", datasetResource.getDescription());
-        loadJsonlDataset(datasetResource, testCasesByTaskId);
-        log.info("Loaded {} problems from dataset", testCasesByTaskId.size());
+        Resource evalMetadataResource = ctx.getResource(evalMetadataPath);
+        log.info("Loading eval metadata dataset from {}", evalMetadataResource.getDescription());
+        loadJsonlDataset(evalMetadataResource, evalMetadataBySlug);
+        log.info("Loaded eval metadata for {} problems", evalMetadataBySlug.size());
 
-        if (testCasesByTaskId.isEmpty()) {
-            throw new IllegalStateException("No test cases loaded from dataset file. Seeder aborting.");
+        if (evalMetadataBySlug.isEmpty()) {
+            throw new IllegalStateException("No eval metadata loaded from dataset file. Seeder aborting.");
         }
 
-        return testCasesByTaskId;
+        return evalMetadataBySlug;
     }
 
     private Map<String, Integer> seedTags(List<RawItem> officialItems) {
@@ -153,7 +153,7 @@ public class DataSeeder implements ApplicationRunner {
     private int seedProblemsInBatches(
             List<RawItem> officialItems,
             Map<String, Integer> tagNameToId,
-            Map<String, RawQuestion> testCasesByTaskId) {
+            Map<String, RawQuestion> evalMetadataBySlug) {
         DataSeeder proxy = ctx.getBean(DataSeeder.class);
 
         List<RawQuestion> batch = new ArrayList<>(BATCH_SIZE);
@@ -164,14 +164,14 @@ public class DataSeeder implements ApplicationRunner {
             batch.add(q);
 
             if (batch.size() >= BATCH_SIZE) {
-                proxy.seedBatch(batch, tagNameToId, testCasesByTaskId);
+                proxy.seedBatch(batch, tagNameToId, evalMetadataBySlug);
                 total += batch.size();
                 log.info("Inserted {}/{} problems", total, officialItems.size());
                 batch.clear();
             }
         }
         if (!batch.isEmpty()) {
-            proxy.seedBatch(batch, tagNameToId, testCasesByTaskId);
+            proxy.seedBatch(batch, tagNameToId, evalMetadataBySlug);
             total += batch.size();
         }
 
@@ -212,15 +212,20 @@ public class DataSeeder implements ApplicationRunner {
      * Insert one batch of problems inside a single transaction.
      * If any row fails, the whole batch rolls back — no partial writes.
      *
-     * For each problem, if test cases exist in the dataset, insert them in bulk.
+     * For each problem, if eval metadata exists in the dataset, populate
+     * prompt/entry_point + insert test cases in bulk.
      */
     @Transactional
     public void seedBatch(
             List<RawQuestion> batch,
             Map<String, Integer> tagNameToId,
-            Map<String, RawQuestion> testCasesByTaskId) {
+            Map<String, RawQuestion> evalMetadataBySlug) {
         for (RawQuestion q : batch) {
-            Problem p = mapToProblem(q);
+            // Match by slug (URL path) since official API uses URL + slug, dataset uses task_id.
+            String slug = extractSlug(q.url());
+            RawQuestion evalMetadata = slug != null ? evalMetadataBySlug.get(slug) : null;
+
+            Problem p = mapToProblem(q, evalMetadata);
             int problemId = problemRepository.insert(p);
 
             // Resolve tag names → tag IDs and write junction rows
@@ -235,17 +240,14 @@ public class DataSeeder implements ApplicationRunner {
                 }
             }
 
-            // Insert test cases if this problem has them in the dataset
-            // Match by slug (URL path) since official API uses slug, dataset uses task_id
-            String slug = extractSlug(q.url());
-            if (slug != null && testCasesByTaskId.containsKey(slug)) {
-                RawQuestion datasetQ = testCasesByTaskId.get(slug);
-                if (datasetQ.inputOutput() != null && !datasetQ.inputOutput().isEmpty()) {
+            // Insert test cases if this problem has them in eval metadata JSONL.
+            if (evalMetadata != null) {
+                if (evalMetadata.inputOutput() != null && !evalMetadata.inputOutput().isEmpty()) {
                     List<TestCase> testCases = new ArrayList<>();
                     int skipped = 0;
 
-                    for (int i = 0; i < datasetQ.inputOutput().size(); i++) {
-                        RawInputOutput io = datasetQ.inputOutput().get(i);
+                    for (int i = 0; i < evalMetadata.inputOutput().size(); i++) {
+                        RawInputOutput io = evalMetadata.inputOutput().get(i);
                         try {
                             if (io == null || io.input() == null || io.output() == null) {
                                 skipped++;
@@ -269,8 +271,8 @@ public class DataSeeder implements ApplicationRunner {
                     log.info("Inserted {} test cases for problem {} (skipped {})", testCases.size(), slug, skipped);
                 }
             } else if (slug != null) {
-                log.debug("No test cases found for problem {} (slug: {}). Available: {}",
-                    q.title(), slug, testCasesByTaskId.keySet().stream().limit(3).toList());
+                log.debug("No eval metadata found for problem {} (slug: {}). Available keys sample: {}",
+                    q.title(), slug, evalMetadataBySlug.keySet().stream().limit(3).toList());
             }
         }
     }
@@ -288,24 +290,49 @@ public class DataSeeder implements ApplicationRunner {
 
     // ── mapping ──────────────────────────────────────────────────────────────
 
-    private Problem mapToProblem(RawQuestion q) {
+    private Problem mapToProblem(RawQuestion officialQuestion, RawQuestion evalMetadata) {
+        String prompt = firstNonBlank(
+                evalMetadata != null ? evalMetadata.prompt() : null,
+                officialQuestion.prompt()
+        );
+        String entryPoint = firstNonBlank(
+                evalMetadata != null ? evalMetadata.entryPoint() : null,
+                officialQuestion.entryPoint()
+        );
+        String starterCode = firstNonBlank(
+                evalMetadata != null ? evalMetadata.starterCode() : null,
+                officialQuestion.starterCode()
+        );
+
         return ImmutableProblem.builder()
-                .questionId(Integer.parseInt(q.questionId()))
-                .title(q.title())
-                .content(q.content())
-                .difficulty(q.difficulty())
-                .likes(q.likes() != null ? q.likes() : 0)
-                .dislikes(q.dislikes() != null ? q.dislikes() : 0)
-                .category(q.categoryTitle())
-                .isPaidOnly(Boolean.TRUE.equals(q.isPaidOnly()))
-                .hasSolution(Boolean.TRUE.equals(q.hasSolution()))
-                .hasVideoSolution(Boolean.TRUE.equals(q.hasVideoSolution()))
-                .slug(extractSlug(q.url()))
-                .url(q.url())
-                .solutionContent(q.solution() != null ? q.solution().content() : null)
-                .hints(q.hints() != null ? q.hints() : List.of())
-                .similarQuestions(q.similarQuestions())
-                .stats(q.stats())
+                .questionId(Integer.parseInt(officialQuestion.questionId()))
+                .title(officialQuestion.title())
+                .content(officialQuestion.content())
+                .difficulty(officialQuestion.difficulty())
+                .likes(officialQuestion.likes() != null ? officialQuestion.likes() : 0)
+                .dislikes(officialQuestion.dislikes() != null ? officialQuestion.dislikes() : 0)
+                .category(officialQuestion.categoryTitle())
+                .isPaidOnly(Boolean.TRUE.equals(officialQuestion.isPaidOnly()))
+                .hasSolution(Boolean.TRUE.equals(officialQuestion.hasSolution()))
+                .hasVideoSolution(Boolean.TRUE.equals(officialQuestion.hasVideoSolution()))
+                .slug(extractSlug(officialQuestion.url()))
+                .url(officialQuestion.url())
+                .solutionContent(officialQuestion.solution() != null ? officialQuestion.solution().content() : null)
+                .hints(officialQuestion.hints() != null ? officialQuestion.hints() : List.of())
+                .similarQuestions(officialQuestion.similarQuestions())
+                .stats(officialQuestion.stats())
+                .prompt(prompt)
+                .entryPoint(entryPoint)
                 .build();
+    }
+
+    private static String firstNonBlank(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+        return null;
     }
 }

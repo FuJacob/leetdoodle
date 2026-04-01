@@ -41,6 +41,9 @@ Response shape:
       "similarQuestions": "[]",
       "stats": "{...}",
       "companyTags": null,
+      "prompt": null,
+      "entryPoint": null,
+      "starterCode": null,
       "hints": [],
       "tags": [{ "id": 1, "name": "Array" }]
     }
@@ -60,6 +63,8 @@ Response shape:
 ### `GET /api/problems/{id}/test-cases`
 
 - Returns `TestCase[]` for evaluation.
+- This endpoint still exists but is no longer used by worker in the hot path
+  (worker now uses internal gRPC to leetcode-service).
 - Shape:
 
 ```json
@@ -103,19 +108,12 @@ Notes:
 
 ### `GET /api/submissions/{id}`
 
-Returns a `Submission` record:
+Returns a polling status envelope:
 
 ```json
 {
-  "id": "8d9f2b09-1478-42e7-9584-96918987e8cd",
-  "problemId": 1,
-  "userId": "user-123",
-  "language": "javascript",
-  "code": "function twoSum(...) { ... }",
   "status": "PENDING",
-  "result": null,
-  "createdAt": "2026-03-30T23:43:09.216Z",
-  "completedAt": null
+  "result": null
 }
 ```
 
@@ -123,6 +121,13 @@ Returns a `Submission` record:
 
 - `PENDING`
 - terminal statuses from worker: `ACCEPTED`, `WRONG_ANSWER`, `RUNTIME_ERROR`, `TIME_LIMIT_EXCEEDED`
+
+`result` notes:
+
+- `result` is a JSON string written by worker (or `null` while pending).
+- Typical shape after terminal states:
+  - `cases[]` with per-case pass/fail and actual/expected
+  - optional `errorMessage` for runtime failures
 
 ## Error Contract Notes
 

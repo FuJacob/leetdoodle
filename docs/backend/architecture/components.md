@@ -7,6 +7,7 @@ This page zooms into each Spring service and maps internal components to their r
 ```mermaid
 flowchart LR
     PC[ProblemController]
+    PGS[ProblemGrpcService]
     PS[ProblemService]
     PR[ProblemRepository]
     TR[TestCaseRepository]
@@ -14,6 +15,7 @@ flowchart LR
     PG[(PostgreSQL public schema)]
 
     PC --> PS
+    PGS --> PG
     PS --> PR
     PS --> TR
     PR --> PG
@@ -21,7 +23,8 @@ flowchart LR
     DS --> PG
 ```
 
-- `ProblemController` exposes list/by-slug/test-case endpoints.
+- `ProblemController` exposes list/by-slug/test-case HTTP endpoints.
+- `ProblemGrpcService` exposes internal `GetProblemEval` endpoint for worker.
 - `ProblemService` centralizes retrieval and not-found handling.
 - Repositories use SQL via JDBC templates (no ORM).
 - `DataSeeder` loads problem/test-case datasets on startup when enabled.
@@ -52,28 +55,30 @@ flowchart LR
 ```mermaid
 flowchart LR
     EC[EvalConsumer]
-    TCR[TestCaseReader]
+    GC[LeetcodeGrpcClient]
     ER[EvalRunner]
     CP[ContainerPool]
     SRW[SubmissionResultWriter]
     RMQ[(RabbitMQ eval.queue)]
+    LEE[(leetcode-service gRPC)]
     PG[(PostgreSQL)]
     DCK[(Docker Engine)]
 
     RMQ --> EC
-    EC --> TCR
+    EC --> GC
     EC --> ER
     EC --> SRW
-    TCR --> PG
+    GC --> LEE
     SRW --> PG
     ER --> CP
     CP --> DCK
 ```
 
 - `EvalConsumer` orchestrates one job end-to-end from queue message to DB result write.
+- `LeetcodeGrpcClient` fetches prompt/entryPoint/test-cases from leetcode-service.
 - `EvalRunner` executes all test cases, handles WA/RE/TLE outcomes.
 - `ContainerPool` manages pre-warmed single-use sandbox containers.
-- Reader/writer components perform direct SQL reads/writes for eval-path latency.
+- `SubmissionResultWriter` persists terminal status/result JSON directly to submissions DB.
 
 ## collab
 

@@ -8,7 +8,7 @@ flowchart TB
 
     subgraph APP[Spring Boot Services]
       COL[collab\n:8080]
-      LEE[leetcode-service\n:8081]
+      LEE[leetcode-service\n:8081 (HTTP), :9090 (gRPC)]
       SUB[submissions\n:8082]
       WRK[worker\n:8083]
     end
@@ -31,16 +31,17 @@ flowchart TB
     DBZ -->|CDC from submissions.outbox| PG
     DBZ -->|EvalJob JSON| RMQ
     WRK -->|consume eval.queue| RMQ
-    WRK -->|read test_cases + write results| PG
+    WRK -->|fetch eval metadata + test cases| LEE
+    WRK -->|write results| PG
     WRK --> DCK
 ```
 
 ## Container Responsibilities
 
 - **collab**: Room/session registry, fan-out relay, in-memory CRDT op-log for replay.
-- **leetcode-service**: Paginated/filterable problem APIs and test-case fetch API.
+- **leetcode-service**: Paginated/filterable problem APIs plus internal gRPC eval-data endpoint.
 - **submissions**: Accepts code submissions, persists row, persists outbox event in same transaction.
-- **worker**: Pulls eval jobs, runs code in sandbox containers, writes status/result JSON back.
+- **worker**: Pulls eval jobs, calls leetcode gRPC for eval metadata, runs code in sandbox containers, writes status/result JSON back.
 - **Debezium**: Bridges DB outbox rows to RabbitMQ messages.
 
 ## Submission Evaluation Sequence
@@ -53,6 +54,7 @@ sequenceDiagram
     participant DBZ as Debezium
     participant RMQ as RabbitMQ
     participant WRK as worker
+    participant LEE as leetcode-service(gRPC)
     participant DCK as Docker
 
     FE->>SUB: POST /api/submissions
@@ -63,7 +65,7 @@ sequenceDiagram
     DBZ->>PG: read WAL (submissions.outbox)
     DBZ->>RMQ: publish EvalJob (routing key: eval)
     WRK->>RMQ: consume eval.queue
-    WRK->>PG: read test_cases
+    WRK->>LEE: GetProblemEval(problemId)
     WRK->>DCK: execute code in container
     WRK->>PG: UPDATE submissions.submissions (status/result)
     FE->>SUB: GET /api/submissions/{id} (poll)

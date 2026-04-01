@@ -67,11 +67,23 @@
     </dependency>
 
     <dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-devtools</artifactId>
-    <scope>runtime</scope>
-    <optional>true</optional>
-</dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-devtools</artifactId>
+      <scope>runtime</scope>
+      <optional>true</optional>
+    </dependency>
+
+    <!-- Shared proto stubs (generated message + service classes) -->
+    <dependency>
+      <groupId>com.leetcanvas</groupId>
+      <artifactId>grpc-api</artifactId>
+    </dependency>
+
+    <!-- Wires the gRPC Netty server into Spring Boot (auto-config + @GrpcService) -->
+    <dependency>
+      <groupId>net.devh</groupId>
+      <artifactId>grpc-server-spring-boot-starter</artifactId>
+    </dependency>
 
   </dependencies>
 

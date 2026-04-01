@@ -18,6 +18,11 @@ export interface RemoteCursor {
 
 export type CollabUser = CanvasPresenceUser;
 
+export interface RemoteStroke {
+  points: Array<[number, number]>;
+  thickness: number;
+}
+
 export function useCanvasCollab(
   canvasId: string,
   userId: string,
@@ -30,9 +35,9 @@ export function useCanvasCollab(
   // Active in-progress strokes from remote users, keyed by userId.
   // Points are world-space, accumulated as draw_points batches arrive.
   // Cleared when draw_end arrives or the user leaves.
-  const [remoteStrokes, setRemoteStrokes] = useState<
-    Map<string, Array<[number, number]>>
-  >(new Map());
+  const [remoteStrokes, setRemoteStrokes] = useState<Map<string, RemoteStroke>>(
+    new Map(),
+  );
   const wsRef = useRef<WebSocket | null>(null);
   const lastCursorSentAt = useRef(0);
 
@@ -130,8 +135,11 @@ export function useCanvasCollab(
         case "draw_points":
           setRemoteStrokes((prev) => {
             const next = new Map(prev);
-            const existing = next.get(msg.userId) ?? [];
-            next.set(msg.userId, [...existing, ...msg.points]);
+            const existing = next.get(msg.userId);
+            next.set(msg.userId, {
+              points: [...(existing?.points ?? []), ...msg.points],
+              thickness: msg.thickness ?? existing?.thickness ?? 2,
+            });
             return next;
           });
           break;

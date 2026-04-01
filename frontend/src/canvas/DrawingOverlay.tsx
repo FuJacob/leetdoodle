@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import type { CollabUser } from "./hooks/useCanvasCollab";
+import type { CollabUser, RemoteStroke } from "./hooks/useCanvasCollab";
 import type { Transform } from "./types";
 
 interface Props {
-  remoteStrokes: Map<string, Array<[number, number]>>;
+  remoteStrokes: Map<string, RemoteStroke>;
   users: CollabUser[];
   transform: Transform;
 }
@@ -21,7 +21,8 @@ export function DrawingOverlay({ remoteStrokes, users, transform }: Props) {
       className="pointer-events-none absolute inset-0 z-20"
       style={{ width: "100%", height: "100%" }}
     >
-      {Array.from(remoteStrokes.entries()).map(([userId, points]) => {
+      {Array.from(remoteStrokes.entries()).map(([userId, stroke]) => {
+        const { points, thickness } = stroke;
         if (points.length < 2) return null;
         const color = usersById.get(userId)?.color ?? DEFAULT_STROKE_COLOR;
         const pointsStr = points
@@ -36,7 +37,7 @@ export function DrawingOverlay({ remoteStrokes, users, transform }: Props) {
             points={pointsStr}
             fill="none"
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={thickness * transform.zoom}
             strokeLinecap="round"
             strokeLinejoin="round"
           />

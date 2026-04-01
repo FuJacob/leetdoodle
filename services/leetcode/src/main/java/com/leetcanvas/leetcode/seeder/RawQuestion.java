@@ -57,7 +57,19 @@ record RawQuestion(
     @JsonProperty("problem_description")
     String problemDescription,
     @JsonProperty("input_output")
-    List<RawInputOutput> inputOutput  // test cases
+    List<RawInputOutput> inputOutput,  // test cases
+
+    // Eval fields: used to build per-case execution scripts in the worker.
+    // prompt = Python boilerplate (imports, ListNode, TreeNode, etc.)
+    // entry_point = how to call the solution, e.g. "Solution().twoSum"
+    @JsonProperty("prompt")
+    String prompt,
+    @JsonProperty("entry_point")
+    String entryPoint,
+
+    // Function stub shown in the code editor, e.g. "class Solution:\n    def twoSum(...):"
+    @JsonProperty("starter_code")
+    String starterCode
 ) {}
 
 @JsonIgnoreProperties(ignoreUnknown = true)

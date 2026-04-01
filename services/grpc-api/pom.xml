@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.leetcanvas</groupId>
+    <artifactId>services</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <!--
+    This module is a shared library — it contains only the .proto file
+    and compiles it into Java stubs. Both the leetcode-service (server)
+    and worker (client) depend on it.
+
+    WHY A SEPARATE MODULE?
+    gRPC requires both sides to use the same generated code. Centralising
+    the proto here means there's one source of truth for the service
+    contract. If you change the proto, you recompile this module and
+    both services pick up the change.
+  -->
+  <artifactId>grpc-api</artifactId>
+  <packaging>jar</packaging>
+
+  <dependencies>
+    <!--
+      grpc-stub: the generated Service stub base classes live here.
+      grpc-protobuf: integrates gRPC with the protobuf serialisation format.
+      Both are needed at compile time AND runtime for the generated stubs to work.
+    -->
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-stub</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-protobuf</artifactId>
+    </dependency>
+    <!--
+      javax.annotation-api provides @Generated — the protobuf code generator
+      annotates generated classes with this, so it must be on the classpath.
+      Java 9+ removed it from the JDK, so we re-add it explicitly.
+    -->
+    <dependency>
+      <groupId>javax.annotation</groupId>
+      <artifactId>javax.annotation-api</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <extensions>
+      <!--
+        os-maven-plugin detects the current OS + architecture and exposes
+        them as ${os.detected.classifier} (e.g. "osx-aarch_64").
+        The protobuf-maven-plugin uses this to download the correct
+        pre-built protoc binary for this machine.
+      -->
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.1</version>
+      </extension>
+    </extensions>
+    <plugins>
+      <!--
+        Compiles .proto → Java in two passes:
+          compile:        generates message classes (protobuf serialisation)
+          compile-custom: generates service stub classes (gRPC interfaces)
+
+        protoc and protoc-gen-grpc-java are downloaded automatically from
+        Maven Central as executable artifacts — no manual installation needed.
+      -->
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.6.1</version>
+        <configuration>
+          <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>compile</goal>
+              <goal>compile-custom</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

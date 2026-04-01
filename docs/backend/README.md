@@ -11,9 +11,10 @@ This folder is the backend living documentation for LeetCanvas.
 ## Service Inventory
 
 - `collab` (port `8080`): WebSocket relay for real-time canvas collaboration.
-- `leetcode-service` (port `8081`): problem catalog + test-case read APIs.
+- `leetcode-service` (port `8081` HTTP, `9090` gRPC): problem catalog APIs + internal eval-data gRPC provider.
 - `submissions` (port `8082`): submission intake and retrieval; writes transactional outbox.
-- `worker` (port `8083`): Rabbit consumer + Docker sandbox evaluator; writes results.
+- `worker` (port `8083`): Rabbit consumer + Docker sandbox evaluator; reads eval metadata via gRPC; writes results.
+- `grpc-api` (library module): shared protobuf/gRPC contract used by leetcode-service and worker.
 
 ## Quick Links
 
@@ -24,6 +25,7 @@ This folder is the backend living documentation for LeetCanvas.
 
 ### Contracts
 - [REST API Contracts](./contracts/rest-api.md)
+- [gRPC Problem Eval Contract](./contracts/grpc-problem-eval.md)
 - [WebSocket Event Contracts](./contracts/websocket-events.md)
 - [Eval Messaging Contract (Outbox + Rabbit)](./contracts/eval-messaging.md)
 
@@ -35,6 +37,7 @@ This folder is the backend living documentation for LeetCanvas.
 - [ADR-0001: Transactional Outbox + Debezium + RabbitMQ](./adrs/ADR-0001-transactional-outbox-debezium-rabbitmq.md)
 - [ADR-0002: Worker Direct DB Access](./adrs/ADR-0002-worker-direct-db-access.md)
 - [ADR-0003: Stateful In-Memory Collab Relay](./adrs/ADR-0003-stateful-collab-relay.md)
+- [ADR-0004: Worker Reads Eval Data via gRPC](./adrs/ADR-0004-worker-reads-eval-data-via-grpc.md)
 
 ## Ownership and Update Checklist
 

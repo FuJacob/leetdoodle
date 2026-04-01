@@ -11,7 +11,8 @@
   - `submissions.submissions`
   - `submissions.outbox`
 
-Worker reads/writes both schema domains directly for evaluation path.
+Worker now writes only submission results directly; eval test-case reads come
+through leetcode-service gRPC.
 
 ## Migration Timeline
 
@@ -29,6 +30,12 @@ Worker reads/writes both schema domains directly for evaluation path.
   - adds `problem_id` index
 - `V4__delete_problems_without_test_cases.sql`
   - removes problems with no available test cases
+- `V5__add_eval_fields.sql`
+  - adds eval metadata columns to `problems`:
+    - `prompt`
+    - `entry_point`
+- `V6__add_starter_code.sql`
+  - adds `starter_code` to `problems`
 
 ### submissions Flyway migrations
 
@@ -62,8 +69,13 @@ Worker reads/writes both schema domains directly for evaluation path.
 - Foreign key: `problem_id -> problems.id`
 - Ordered by `id` for stable worker execution order
 
+### `problems` eval metadata columns
+
+- `prompt` and `entry_point` are used by worker through gRPC projection.
+- `starter_code` column exists for editor bootstrap use-cases and may be null.
+
 ## Data Access Pattern Summary
 
 - `leetcode-service`: JDBC repository queries over public schema.
 - `submissions`: JDBC repositories over submissions schema in service-owned transactions.
-- `worker`: direct JDBC access to read test cases and persist submission results.
+- `worker`: gRPC read from leetcode-service for eval metadata/test cases; direct JDBC write for submission results.

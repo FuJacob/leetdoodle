@@ -42,6 +42,19 @@
       <groupId>com.github.docker-java</groupId>
       <artifactId>docker-java-transport-zerodep</artifactId>
     </dependency>
+
+    <!-- Shared proto stubs (generated message + service classes) -->
+    <dependency>
+      <groupId>com.leetcanvas</groupId>
+      <artifactId>grpc-api</artifactId>
+    </dependency>
+
+    <!-- Wires the gRPC Netty client channel into Spring Boot (@GrpcClient injection) -->
+    <dependency>
+      <groupId>net.devh</groupId>
+      <artifactId>grpc-client-spring-boot-starter</artifactId>
+    </dependency>
+
   </dependencies>
 
   <build>

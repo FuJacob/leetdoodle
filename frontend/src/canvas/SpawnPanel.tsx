@@ -1,15 +1,11 @@
 import { useState } from "react";
+import { IconShare3 } from "@tabler/icons-react";
 import type { NodeType } from "../shared/nodes";
+import { NODE_CONTROL_OPTIONS } from "./ui/controlOptions";
 
 interface SpawnPanelProps {
   onSpawn: (type: NodeType) => void;
 }
-
-const NODE_OPTIONS: { type: NodeType; label: string }[] = [
-  { type: "note", label: "Note" },
-  { type: "problem", label: "Problem" },
-  { type: "code", label: "Code" },
-];
 
 export function SpawnPanel({ onSpawn }: SpawnPanelProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
@@ -35,22 +31,24 @@ export function SpawnPanel({ onSpawn }: SpawnPanelProps) {
     <div className="flex flex-col gap-1">
       <div className="flex flex-col gap-2 border border-zinc-700 bg-zinc-900 p-3">
         <div className="text-xs font-semibold text-zinc-400">Add node</div>
-        {NODE_OPTIONS.map(({ type, label }) => (
+        {NODE_CONTROL_OPTIONS.map(({ type, label, Icon }) => (
           <button
             key={type}
             onClick={() => onSpawn(type)}
-            className="border border-zinc-700 px-3 py-2 text-left text-sm text-zinc-200"
+            className="flex items-center gap-2 border border-zinc-700 px-3 py-2 text-left text-sm text-zinc-200 transition hover:border-blue-500 hover:text-blue-400"
           >
-            {label}
+            <Icon size={16} stroke={1.8} />
+            <span>{label}</span>
           </button>
         ))}
       </div>
 
       <button
         onClick={handleShareCanvas}
-        className="mt-1 border border-zinc-700 px-3 py-2 text-left text-sm text-zinc-200"
+        className="mt-1 flex items-center gap-2 border border-zinc-700 px-3 py-2 text-left text-sm text-zinc-200 transition hover:border-blue-500 hover:text-blue-400"
       >
-        Share Canvas
+        <IconShare3 size={16} stroke={1.8} />
+        <span>Share Canvas</span>
       </button>
       <div className="text-[10px] text-zinc-500">
         {copyState === "copied" && "Link copied"}
