@@ -4,3 +4,5 @@ export interface Transform {
   y: number;    // panY — world origin offset in screen pixels
   zoom: number; // scale factor (1 = 100%)
 }
+
+export type LocalCursorMode = "pointer" | "resize-nwse" | "resize-nesw";

@@ -94,9 +94,16 @@ docs/backend/            Architecture, contracts, ADRs, runbooks
 This script:
 
 - installs `services/grpc-api` to local Maven cache,
+- runs clean Maven startup for each backend service by default (prevents stale `target/classes` issues),
 - starts Docker infra (`postgres`, `rabbitmq`, `debezium`),
 - starts Spring services (`collab`, `leetcode`, `submissions`, `worker`),
 - writes logs to `.logs/` and PIDs to `.run/`.
+
+If you need a faster startup and are okay skipping clean rebuilds:
+
+```bash
+./scripts/backend-up.sh --no-clean
+```
 
 ### 2) Start frontend
 
@@ -170,6 +177,17 @@ To keep infra running while stopping Spring services:
 ```bash
 ./scripts/backend-down.sh --keep-infra
 ```
+
+### Restart backend services
+
+```bash
+./scripts/backend-restart.sh
+```
+
+Useful flags:
+
+- `--keep-infra` (restart Spring services only, leave Docker infra up)
+- `--no-clean` (skip clean rebuild path)
 
 ### Infra-only utilities
 

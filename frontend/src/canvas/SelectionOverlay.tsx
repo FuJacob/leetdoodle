@@ -1,8 +1,8 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { IconCopy, IconTrash } from "@tabler/icons-react";
 import type { CanvasNode } from "../shared/nodes";
 import type { CollabUser } from "./hooks/useCanvasCollab";
-import type { Transform } from "./types";
+import type { LocalCursorMode, Transform } from "./types";
 
 interface Props {
   nodes: CanvasNode[];
@@ -13,6 +13,7 @@ interface Props {
   onResize: (nodeId: string, width: number, height: number) => void;
   onClone: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
+  onLocalCursorModeChange: (mode: LocalCursorMode) => void;
 }
 
 type Corner = "nw" | "ne" | "sw" | "se";
@@ -22,16 +23,22 @@ const REMOTE_SELECTION_FALLBACK_COLOR = "var(--lc-selection-remote-fallback)";
 const TOOLBAR_HORIZONTAL_OFFSET = 10;
 const TOOLBAR_VERTICAL_OFFSET = 18;
 
+function getCursorModeForCorner(corner: Corner): LocalCursorMode {
+  return corner === "nw" || corner === "se" ? "resize-nwse" : "resize-nesw";
+}
+
 function CornerHandle({
   corner,
   x,
   y,
   onDragStart,
+  onCursorModeChange,
 }: {
   corner: Corner;
   x: number;
   y: number;
   onDragStart: (e: React.PointerEvent, corner: Corner) => void;
+  onCursorModeChange: (mode: LocalCursorMode) => void;
 }) {
   const outerSize = 16;
   const innerSize = 8;
@@ -53,7 +60,14 @@ function CornerHandle({
       style={style}
       onPointerDown={(e) => {
         e.stopPropagation();
+        onCursorModeChange(getCursorModeForCorner(corner));
         onDragStart(e, corner);
+      }}
+      onPointerEnter={() => {
+        onCursorModeChange(getCursorModeForCorner(corner));
+      }}
+      onPointerLeave={() => {
+        onCursorModeChange("pointer");
       }}
     >
       <div
@@ -104,6 +118,7 @@ export function SelectionOverlay({
   onResize,
   onClone,
   onDelete,
+  onLocalCursorModeChange,
 }: Props) {
   const localSelectionColor = "var(--lc-selection-local)";
   const dragRef = useRef<{
@@ -124,6 +139,12 @@ export function SelectionOverlay({
   const selectedNode = selectedNodeId
     ? nodes.find((node) => node.id === selectedNodeId)
     : null;
+
+  useEffect(() => {
+    if (!selectedNode) {
+      onLocalCursorModeChange("pointer");
+    }
+  }, [selectedNode, onLocalCursorModeChange]);
 
   const handleDragStart = useCallback(
     (e: React.PointerEvent, corner: Corner) => {
@@ -187,7 +208,8 @@ export function SelectionOverlay({
 
   const handlePointerUp = useCallback(() => {
     dragRef.current = null;
-  }, []);
+    onLocalCursorModeChange("pointer");
+  }, [onLocalCursorModeChange]);
 
   const handleClone = useCallback(() => {
     if (!selectedNode) return;
@@ -251,24 +273,28 @@ export function SelectionOverlay({
               x={selectedNode.x * transform.zoom + transform.x}
               y={selectedNode.y * transform.zoom + transform.y}
               onDragStart={handleDragStart}
+              onCursorModeChange={onLocalCursorModeChange}
             />
             <CornerHandle
               corner="ne"
               x={(selectedNode.x + selectedNode.width) * transform.zoom + transform.x}
               y={selectedNode.y * transform.zoom + transform.y}
               onDragStart={handleDragStart}
+              onCursorModeChange={onLocalCursorModeChange}
             />
             <CornerHandle
               corner="sw"
               x={selectedNode.x * transform.zoom + transform.x}
               y={(selectedNode.y + selectedNode.height) * transform.zoom + transform.y}
               onDragStart={handleDragStart}
+              onCursorModeChange={onLocalCursorModeChange}
             />
             <CornerHandle
               corner="se"
               x={(selectedNode.x + selectedNode.width) * transform.zoom + transform.x}
               y={(selectedNode.y + selectedNode.height) * transform.zoom + transform.y}
               onDragStart={handleDragStart}
+              onCursorModeChange={onLocalCursorModeChange}
             />
 
             <div

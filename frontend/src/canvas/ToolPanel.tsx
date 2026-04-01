@@ -1,4 +1,8 @@
-import { TOOL_CONTROL_OPTIONS } from "./ui/controlOptions";
+import {
+  CONTROL_ICON_SIZE,
+  CONTROL_ICON_STROKE,
+  TOOL_CONTROL_OPTIONS,
+} from "./ui/controlOptions";
 
 interface Props {
   tool: "select" | "draw";
@@ -23,7 +27,7 @@ export function ToolPanel({ tool, onToolChange, thickness, onThicknessChange }: 
                 : "border-(--lc-border-default) text-(--lc-text-secondary) hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
             }`}
           >
-            <Icon size={15} stroke={1.8} />
+            <Icon size={CONTROL_ICON_SIZE} stroke={CONTROL_ICON_STROKE} />
             <span>{label}</span>
           </button>
         ))}

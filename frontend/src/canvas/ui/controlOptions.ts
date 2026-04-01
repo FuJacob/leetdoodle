@@ -3,6 +3,10 @@ import type { ComponentType } from "react";
 import type { NodeType } from "../../shared/nodes";
 import type { CanvasTool } from "../tools/types";
 
+export const CONTROL_ICON_SIZE = 20;
+export const CONTROL_ICON_STROKE = 1.9;
+export const OVERLAY_ACTION_ICON_SIZE = 22;
+
 type IconProps = {
   size?: number | string;
   stroke?: number | string;

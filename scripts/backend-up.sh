@@ -7,13 +7,35 @@ LOG_DIR="$ROOT/.logs"
 
 SERVICES=(collab leetcode submissions worker)
 
+CLEAN_BUILD=1
+COMPOSE_ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --clean)
+      CLEAN_BUILD=1
+      ;;
+    --no-clean)
+      CLEAN_BUILD=0
+      ;;
+    *)
+      COMPOSE_ARGS+=("$arg")
+      ;;
+  esac
+done
+
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
-echo "Installing shared grpc-api module (and parent POM) into local Maven repo..."
-mvn -f "$ROOT/services/pom.xml" -pl grpc-api -am install -DskipTests
+if [[ "$CLEAN_BUILD" -eq 1 ]]; then
+  echo "Cleaning and installing shared grpc-api module (and parent POM) into local Maven repo..."
+  mvn -f "$ROOT/services/pom.xml" -pl grpc-api -am clean install -DskipTests
+else
+  echo "Installing shared grpc-api module (and parent POM) into local Maven repo..."
+  mvn -f "$ROOT/services/pom.xml" -pl grpc-api -am install -DskipTests
+fi
 
 echo "Starting infra..."
-"$ROOT/scripts/dev-up.sh"
+"$ROOT/scripts/dev-up.sh" "${COMPOSE_ARGS[@]}"
 
 start_service() {
   local service="$1"
@@ -39,7 +61,11 @@ start_service() {
   echo "Starting $service..."
   (
     cd "$service_dir"
-    nohup mvn spring-boot:run >"$log_file" 2>&1 &
+    if [[ "$CLEAN_BUILD" -eq 1 ]]; then
+      nohup mvn clean spring-boot:run -DskipTests >"$log_file" 2>&1 &
+    else
+      nohup mvn spring-boot:run >"$log_file" 2>&1 &
+    fi
     echo $! >"$pid_file"
   )
 

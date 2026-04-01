@@ -28,6 +28,7 @@ import { useSelectToolController } from "./tools/useSelectToolController";
 import { useDrawToolController } from "../features/draw/hooks/useDrawToolController";
 import { useActiveToolController } from "./tools/useActiveToolController";
 import type { CanvasTool } from "./tools/types";
+import type { LocalCursorMode } from "./types";
 
 interface CanvasProps {
   canvasId: string;
@@ -107,6 +108,8 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   // Drawing tool state
   const [tool, setTool] = useState<CanvasTool>("select");
   const [thickness, setThickness] = useState(2);
+  const [localCursorMode, setLocalCursorMode] =
+    useState<LocalCursorMode>("pointer");
 
   // Collab hook with event handlers for remote updates
   const {
@@ -375,7 +378,13 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
 
       {activeToolController.layers}
 
-      <CursorOverlay cursors={cursors} users={users} transform={transform} />
+      <CursorOverlay
+        cursors={cursors}
+        users={users}
+        transform={transform}
+        viewportRef={viewportRef}
+        localCursorMode={localCursorMode}
+      />
       <DrawingOverlay remoteStrokes={remoteStrokes} users={users} transform={transform} />
       <EdgesOverlay nodes={nodes} edges={edges} transform={transform} />
       <SelectionOverlay
@@ -387,6 +396,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
         onResize={resizeNode}
         onDelete={deleteNode}
         onClone={cloneNode}
+        onLocalCursorModeChange={setLocalCursorMode}
       />
 
       <div
