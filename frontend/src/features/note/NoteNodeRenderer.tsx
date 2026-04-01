@@ -49,7 +49,7 @@ export function NoteNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
 
   return (
     <div
-      className="absolute cursor-grab select-none border border-zinc-700 bg-zinc-900 p-3 active:cursor-grabbing"
+      className="absolute cursor-grab select-none border border-(--lc-border-default) bg-(--lc-surface-1) p-3 active:cursor-grabbing"
       style={{
         left: node.x,
         top: node.y,
@@ -58,7 +58,7 @@ export function NoteNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
       }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
-      <div className="mb-2 text-xs font-semibold text-zinc-400">Note</div>
+      <div className="mb-2 text-xs font-semibold text-(--lc-text-secondary)">Note</div>
       <div
         className="h-full"
         style={{ height: node.height - 50 }} // subtract header + padding
@@ -67,7 +67,7 @@ export function NoteNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
         <textarea
           placeholder="Write a note..."
           value={node.data.content}
-          className="w-full h-full bg-zinc-800 text-zinc-100 text-sm p-2 border border-zinc-700 resize-none outline-none placeholder:text-zinc-500"
+          className="h-full w-full resize-none border border-(--lc-border-default) bg-(--lc-surface-2) p-2 text-sm text-(--lc-text-primary) outline-none placeholder:text-(--lc-text-muted)"
           onChange={(e) => {
             const next = e.target.value;
             const edits = diffToSingleEdit(lastTextRef.current, next);

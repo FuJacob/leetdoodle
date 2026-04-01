@@ -8,6 +8,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST controller for problem discovery and retrieval endpoints.
+ */
 @RestController
 @RequestMapping("/api/problems")
 @CrossOrigin   // allow the Vite dev server (localhost:5173) to call this

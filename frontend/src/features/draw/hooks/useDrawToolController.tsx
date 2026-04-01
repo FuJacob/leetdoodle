@@ -3,7 +3,6 @@ import type { CanvasToolController } from "../../../canvas/tools/types";
 import type { Transform } from "../../../canvas/types";
 import { screenToWorld } from "../../../canvas/utils/coordinates";
 import type { CanvasOutboundEvent } from "../../../shared/events";
-import type { CanvasNode } from "../../../shared/nodes";
 
 interface DrawToolControllerDeps {
   viewportRef: React.RefObject<HTMLDivElement | null>;
@@ -138,7 +137,9 @@ export function useDrawToolController({
   );
 
   const onNodePointerDown = useCallback(
-    (_e: React.PointerEvent<HTMLDivElement>, _node: CanvasNode) => {
+    (e: React.PointerEvent<HTMLDivElement>, node: unknown) => {
+      void e;
+      void node;
       // Draw mode captures pointer at the canvas layer; node dragging is disabled.
     },
     [],
@@ -158,8 +159,8 @@ export function useDrawToolController({
           <polyline
             ref={localPolylineRef}
             fill="none"
-            stroke="white"
-            strokeWidth={thickness * transformRef.current.zoom}
+            stroke="var(--lc-draw-stroke)"
+            strokeWidth={1}
             strokeLinecap="round"
             strokeLinejoin="round"
           />

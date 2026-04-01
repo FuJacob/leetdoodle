@@ -22,13 +22,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
-/*
- * ApplicationRunner: Spring calls run() once after the full context is ready
- * (all beans wired, DB connected, Flyway migrations applied).
+/**
+ * One-time bootstrap seeder for problems, tags, and test cases.
  *
- * @ConditionalOnProperty: this bean only exists when
- * leetcode.seeder.enabled=true in application.properties.
- * Flip to false and the seeder is completely removed from the bean graph.
+ * <p>Runs after startup only when {@code leetcode.seeder.enabled=true}. The seeder is intentionally
+ * idempotent at the table level and batches writes to balance throughput with rollback blast radius.
  */
 @Component
 @ConditionalOnProperty(name = "leetcode.seeder.enabled", havingValue = "true")
@@ -299,10 +297,8 @@ public class DataSeeder implements ApplicationRunner {
                 evalMetadata != null ? evalMetadata.entryPoint() : null,
                 officialQuestion.entryPoint()
         );
-        String starterCode = firstNonBlank(
-                evalMetadata != null ? evalMetadata.starterCode() : null,
-                officialQuestion.starterCode()
-        );
+        // starter_code only exists in the JSONL eval metadata, never in the official API
+        String starterCode = evalMetadata != null ? evalMetadata.starterCode() : null;
 
         return ImmutableProblem.builder()
                 .questionId(Integer.parseInt(officialQuestion.questionId()))
@@ -323,6 +319,7 @@ public class DataSeeder implements ApplicationRunner {
                 .stats(officialQuestion.stats())
                 .prompt(prompt)
                 .entryPoint(entryPoint)
+                .starterCode(starterCode)
                 .build();
     }
 

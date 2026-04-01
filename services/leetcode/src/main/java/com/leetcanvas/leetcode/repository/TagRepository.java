@@ -13,6 +13,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * JDBC repository for tag metadata and name-id resolution.
+ */
 @Repository
 public class TagRepository {
 

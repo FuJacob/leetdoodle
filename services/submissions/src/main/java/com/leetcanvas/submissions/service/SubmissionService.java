@@ -12,6 +12,12 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
+/**
+ * Application service for submission lifecycle operations.
+ *
+ * <p>Coordinates writes across submission and outbox repositories so job dispatch remains
+ * transactional and resilient to transient broker outages.
+ */
 @Service
 public class SubmissionService {
 

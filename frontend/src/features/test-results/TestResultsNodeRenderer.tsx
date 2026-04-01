@@ -29,8 +29,8 @@ function CaseTab({
   onClick?: () => void;
 }) {
   const indicator =
-    passed === true ? <span className="text-green-500">✓</span>
-    : passed === false ? <span className="text-red-500">✕</span>
+    passed === true ? <span className="text-(--lc-success)">✓</span>
+    : passed === false ? <span className="text-(--lc-danger)">✕</span>
     : null;
 
   return (
@@ -39,8 +39,8 @@ function CaseTab({
       onClick={onClick}
       className={`flex items-center gap-1 border px-2 py-0.5 text-[10px] font-semibold ${
         active
-          ? "border-zinc-500 bg-zinc-700 text-zinc-100"
-          : "border-zinc-700 bg-transparent text-zinc-400"
+          ? "border-(--lc-border-strong) bg-(--lc-surface-3) text-(--lc-text-primary)"
+          : "border-(--lc-border-default) bg-transparent text-(--lc-text-secondary)"
       }`}
       disabled={!onClick}
     >
@@ -53,8 +53,8 @@ function CaseTab({
 function ValueBlock({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="mb-3">
-      <div className="mb-1 text-[10px] font-semibold text-zinc-500">{label}</div>
-      <div className="border border-zinc-700 bg-zinc-800 p-2 font-mono text-xs text-zinc-100 whitespace-pre-wrap">
+      <div className="mb-1 text-[10px] font-semibold text-(--lc-text-muted)">{label}</div>
+      <div className="whitespace-pre-wrap border border-(--lc-border-default) bg-(--lc-surface-2) p-2 font-mono text-xs text-(--lc-text-primary)">
         {panel(value)}
       </div>
     </div>
@@ -89,34 +89,38 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
     : null;
 
   const statusColor =
-    accepted ? "text-green-500"
-    : isError ? "text-red-400"
-    : "text-yellow-400";
+    accepted ? "text-(--lc-success)"
+    : isError ? "text-(--lc-danger)"
+    : "text-(--lc-warning)";
 
   return (
     <div
-      className="absolute cursor-grab select-none overflow-hidden border border-zinc-700 bg-zinc-900 active:cursor-grabbing"
+      className="absolute cursor-grab select-none overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
       style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
       {/* Header — mode tabs */}
-      <div className="flex items-center justify-between border-b border-zinc-700 p-2">
+      <div className="flex items-center justify-between border-b border-(--lc-border-default) p-2">
         <div className="flex items-center gap-3">
           <button
             type="button"
             className={`text-xs font-semibold ${
-              data.mode === "testcase" ? "text-zinc-100" : "text-zinc-500"
+              data.mode === "testcase"
+                ? "text-(--lc-text-primary)"
+                : "text-(--lc-text-muted)"
             }`}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => updateResultsData(node, onUpdate, { mode: "testcase" })}
           >
             Testcase
           </button>
-          <span className="text-zinc-600">|</span>
+          <span className="text-(--lc-text-muted)">|</span>
           <button
             type="button"
             className={`text-xs font-semibold ${
-              data.mode === "result" ? "text-zinc-100" : "text-zinc-500"
+              data.mode === "result"
+                ? "text-(--lc-text-primary)"
+                : "text-(--lc-text-muted)"
             }`}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => updateResultsData(node, onUpdate, { mode: "result" })}
@@ -157,7 +161,7 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
         {data.mode === "testcase" && (
           <>
             {!hasCases && (
-              <p className="text-xs text-zinc-500">Run to see test cases.</p>
+              <p className="text-xs text-(--lc-text-muted)">Run to see test cases.</p>
             )}
             {selected && (
               <ValueBlock label="Input" value={selected.input} />
@@ -167,14 +171,14 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
 
         {/* Result mode — running */}
         {data.mode === "result" && running && (
-          <p className="text-xs text-zinc-400">Running…</p>
+          <p className="text-xs text-(--lc-text-secondary)">Running…</p>
         )}
 
         {/* Result mode — done */}
         {data.mode === "result" && !running && (
           <>
             {isError && data.errorMessage && (
-              <div className="mb-3 border border-red-900 bg-red-950/20 p-2 font-mono text-xs text-red-400 whitespace-pre-wrap">
+              <div className="mb-3 whitespace-pre-wrap border border-(--lc-danger) bg-(--lc-danger-bg-soft) p-2 font-mono text-xs text-(--lc-danger)">
                 {data.errorMessage}
               </div>
             )}
@@ -196,7 +200,7 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
                 {isError && (
                   <button
                     type="button"
-                    className="text-[10px] text-zinc-400 hover:text-zinc-200"
+                    className="text-[10px] text-(--lc-text-secondary) transition hover:text-(--lc-accent)"
                     onClick={() => updateResultsData(node, onUpdate, { mode: "testcase" })}
                   >
                     Open Testcase ↗
@@ -206,7 +210,7 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
             )}
 
             {!hasCases && !running && (
-              <p className="text-xs text-zinc-500">No results yet.</p>
+              <p className="text-xs text-(--lc-text-muted)">No results yet.</p>
             )}
           </>
         )}

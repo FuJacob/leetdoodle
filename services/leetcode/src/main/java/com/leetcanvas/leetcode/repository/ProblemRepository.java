@@ -15,6 +15,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
 
+/**
+ * JDBC repository for problem aggregates and tag joins.
+ *
+ * <p>Owns SQL used by REST/gRPC query paths and by the data seeder write path.
+ */
 @Repository
 public class ProblemRepository {
 
@@ -95,13 +100,13 @@ public class ProblemRepository {
                 likes, dislikes, category, is_paid_only,
                 has_solution, has_video_solution, url, solution_content,
                 hints, similar_questions, stats, company_tags,
-                prompt, entry_point
+                prompt, entry_point, starter_code
             ) VALUES (
                 :questionId, :slug, :title, :content, :difficulty,
                 :likes, :dislikes, :category, :isPaidOnly,
                 :hasSolution, :hasVideoSolution, :url, :solutionContent,
                 CAST(:hints AS jsonb), :similarQuestions, :stats, :companyTags,
-                :prompt, :entryPoint
+                :prompt, :entryPoint, :starterCode
             ) RETURNING id
             """,
             new MapSqlParameterSource()
@@ -123,7 +128,8 @@ public class ProblemRepository {
                 .addValue("stats",            p.stats())
                 .addValue("companyTags",      p.companyTags())
                 .addValue("prompt",           p.prompt())
-                .addValue("entryPoint",       p.entryPoint()),
+                .addValue("entryPoint",       p.entryPoint())
+                .addValue("starterCode",      p.starterCode()),
             Integer.class
         );
 
@@ -204,6 +210,7 @@ public class ProblemRepository {
             .companyTags(rs.getString("company_tags"))
             .prompt(rs.getString("prompt"))
             .entryPoint(rs.getString("entry_point"))
+            .starterCode(rs.getString("starter_code"))
             .build();
     }
 

@@ -17,8 +17,8 @@ interface Props {
 
 type Corner = "nw" | "ne" | "sw" | "se";
 
-const LOCAL_SELECTION_COLOR = "#3b82f6";
-const REMOTE_SELECTION_FALLBACK_COLOR = "#71717a";
+const LOCAL_SELECTION_COLOR = "var(--lc-selection-local)";
+const REMOTE_SELECTION_FALLBACK_COLOR = "var(--lc-selection-remote-fallback)";
 const TOOLBAR_HORIZONTAL_OFFSET = 10;
 const TOOLBAR_VERTICAL_OFFSET = 18;
 
@@ -81,7 +81,7 @@ function ActionIconButton({
       type="button"
       title={title}
       aria-label={title}
-      className="flex h-8 w-8 items-center justify-center border border-zinc-600 bg-zinc-900 text-zinc-200 shadow-sm transition hover:border-blue-500 hover:text-blue-400"
+      className="flex h-8 w-8 items-center justify-center border border-(--lc-border-strong) bg-(--lc-surface-1) text-(--lc-text-secondary) shadow-sm transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
       onPointerDown={(e) => {
         e.stopPropagation();
       }}
@@ -105,6 +105,7 @@ export function SelectionOverlay({
   onClone,
   onDelete,
 }: Props) {
+  const localSelectionColor = "var(--lc-selection-local)";
   const dragRef = useRef<{
     active: boolean;
     corner: Corner;
@@ -240,7 +241,7 @@ export function SelectionOverlay({
               top: selectedNode.y * transform.zoom + transform.y,
               width: selectedNode.width * transform.zoom,
               height: selectedNode.height * transform.zoom,
-              border: `2px solid ${LOCAL_SELECTION_COLOR}`,
+              border: `2px solid ${localSelectionColor}`,
             }}
           />
 

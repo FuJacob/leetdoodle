@@ -12,7 +12,7 @@ export function parseStats(raw: string | null): ProblemStats | null {
 }
 
 export function difficultyClass(d: string) {
-  if (d === 'Easy') return 'text-green-400';
-  if (d === 'Hard') return 'text-red-400';
-  return 'text-yellow-400';
+  if (d === 'Easy') return 'text-(--lc-success)';
+  if (d === 'Hard') return 'text-(--lc-danger)';
+  return 'text-(--lc-warning)';
 }

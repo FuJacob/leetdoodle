@@ -33,6 +33,9 @@ This folder is the backend living documentation for LeetCanvas.
 - [Storage and Migration Timeline](./data/storage-and-migrations.md)
 - [Local Runtime and Runbooks](./operations/local-runtime-and-runbooks.md)
 
+### Standards
+- [Javadoc and Teaching Style Guide](./standards/javadoc-and-teaching-style.md)
+
 ### ADRs
 - [ADR-0001: Transactional Outbox + Debezium + RabbitMQ](./adrs/ADR-0001-transactional-outbox-debezium-rabbitmq.md)
 - [ADR-0002: Worker Direct DB Access](./adrs/ADR-0002-worker-direct-db-access.md)
@@ -46,4 +49,5 @@ When changing backend behavior, confirm:
 1. Relevant contract docs are updated.
 2. C4 component diagram remains accurate.
 3. Data docs reflect schema/migration changes.
-4. If design tradeoffs changed, add or update an ADR.
+4. Javadocs in touched backend Java files are updated for behavior/semantics changes.
+5. If design tradeoffs changed, add or update an ADR.

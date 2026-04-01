@@ -8,7 +8,7 @@ interface Props {
   transform: Transform;
 }
 
-const DEFAULT_STROKE_COLOR = "#71717a";
+const DEFAULT_STROKE_COLOR = "var(--lc-selection-remote-fallback)";
 
 export function DrawingOverlay({ remoteStrokes, users, transform }: Props) {
   const usersById = useMemo(

@@ -1,5 +1,119 @@
 @import "tailwindcss";
 
+:root {
+  /* Primitive tokens */
+  --lc-neutral-0: #fffdf8;
+  --lc-neutral-50: #faf5ec;
+  --lc-neutral-100: #f5efe4;
+  --lc-neutral-200: #e9dece;
+  --lc-neutral-300: #dbcdb9;
+  --lc-neutral-400: #c8b59b;
+  --lc-neutral-500: #a89276;
+  --lc-neutral-600: #88745d;
+  --lc-neutral-700: #6c5a48;
+  --lc-neutral-800: #504235;
+  --lc-neutral-900: #362d24;
+
+  --lc-accent-500: #3a7cf2;
+  --lc-accent-600: #2f6de0;
+  --lc-success-500: #16a34a;
+  --lc-warning-500: #ca8a04;
+  --lc-danger-500: #dc2626;
+
+  /* Semantic tokens */
+  --lc-canvas-bg: var(--lc-neutral-50);
+  --lc-canvas-dot: var(--lc-neutral-300);
+
+  --lc-surface-1: var(--lc-neutral-0);
+  --lc-surface-2: var(--lc-neutral-100);
+  --lc-surface-3: var(--lc-neutral-200);
+
+  --lc-text-primary: var(--lc-neutral-900);
+  --lc-text-secondary: var(--lc-neutral-700);
+  --lc-text-muted: var(--lc-neutral-500);
+  --lc-text-inverse: #ffffff;
+
+  --lc-border-default: var(--lc-neutral-300);
+  --lc-border-strong: var(--lc-neutral-400);
+  --lc-border-focus: var(--lc-accent-500);
+
+  --lc-accent: var(--lc-accent-500);
+  --lc-accent-hover: var(--lc-accent-600);
+  --lc-link: var(--lc-accent-500);
+
+  --lc-success: var(--lc-success-500);
+  --lc-warning: var(--lc-warning-500);
+  --lc-danger: var(--lc-danger-500);
+  --lc-danger-bg-soft: rgba(220, 38, 38, 0.12);
+
+  --lc-selection-local: var(--lc-accent-500);
+  --lc-selection-remote-fallback: var(--lc-neutral-500);
+
+  --lc-editor-bg: var(--lc-surface-2);
+  --lc-editor-gutter: var(--lc-surface-2);
+  --lc-editor-active-line: var(--lc-surface-3);
+  --lc-editor-caret: var(--lc-text-primary);
+
+  --lc-draw-stroke: var(--lc-text-primary);
+}
+
+[data-theme="dark"] {
+  /* Primitive tokens */
+  --lc-neutral-0: #17120f;
+  --lc-neutral-50: #201915;
+  --lc-neutral-100: #2a221d;
+  --lc-neutral-200: #352c25;
+  --lc-neutral-300: #463930;
+  --lc-neutral-400: #5b4b3f;
+  --lc-neutral-500: #7a6857;
+  --lc-neutral-600: #a89480;
+  --lc-neutral-700: #cbb9a6;
+  --lc-neutral-800: #e3d5c7;
+  --lc-neutral-900: #f3e9dc;
+
+  --lc-accent-500: #8ab4ff;
+  --lc-accent-600: #b3d0ff;
+  --lc-success-500: #4ade80;
+  --lc-warning-500: #facc15;
+  --lc-danger-500: #f87171;
+
+  /* Semantic tokens */
+  --lc-canvas-bg: var(--lc-neutral-0);
+  --lc-canvas-dot: var(--lc-neutral-300);
+
+  --lc-surface-1: var(--lc-neutral-100);
+  --lc-surface-2: var(--lc-neutral-200);
+  --lc-surface-3: var(--lc-neutral-300);
+
+  --lc-text-primary: var(--lc-neutral-800);
+  --lc-text-secondary: var(--lc-neutral-700);
+  --lc-text-muted: var(--lc-neutral-500);
+  --lc-text-inverse: #ffffff;
+
+  --lc-border-default: var(--lc-neutral-300);
+  --lc-border-strong: var(--lc-neutral-400);
+  --lc-border-focus: var(--lc-accent-500);
+
+  --lc-accent: var(--lc-accent-500);
+  --lc-accent-hover: var(--lc-accent-600);
+  --lc-link: var(--lc-accent-500);
+
+  --lc-success: var(--lc-success-500);
+  --lc-warning: var(--lc-warning-500);
+  --lc-danger: var(--lc-danger-500);
+  --lc-danger-bg-soft: rgba(248, 113, 113, 0.18);
+
+  --lc-selection-local: var(--lc-accent-500);
+  --lc-selection-remote-fallback: var(--lc-neutral-500);
+
+  --lc-editor-bg: var(--lc-surface-1);
+  --lc-editor-gutter: var(--lc-surface-1);
+  --lc-editor-active-line: var(--lc-surface-2);
+  --lc-editor-caret: var(--lc-text-primary);
+
+  --lc-draw-stroke: var(--lc-text-primary);
+}
+
 /* Tailwind's preflight handles box-sizing and margin resets. */
 /* These rules ensure the canvas fills the full screen. */
 html,

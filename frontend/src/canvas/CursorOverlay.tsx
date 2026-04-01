@@ -8,7 +8,7 @@ interface Props {
   transform: Transform;
 }
 
-const DEFAULT_CURSOR_COLOR = "#71717a";
+const DEFAULT_CURSOR_COLOR = "var(--lc-selection-remote-fallback)";
 
 export function CursorOverlay({ cursors, users, transform }: Props) {
   const usersById = useMemo(
@@ -30,7 +30,7 @@ export function CursorOverlay({ cursors, users, transform }: Props) {
           >
             <div className="rounded-full p-2" style={{ backgroundColor: color }} />
             <span
-              className="ml-1 rounded px-1 py-0.5 text-[10px] leading-none text-white"
+              className="ml-1 rounded px-1 py-0.5 text-[10px] leading-none text-(--lc-text-inverse)"
               style={{ backgroundColor: color }}
             >
               {userId.slice(0, 4)}

@@ -20,7 +20,7 @@ export function DrawNodeRenderer({ node, onPointerDown }: Props) {
         <polyline
           points={pointsStr}
           fill="none"
-          stroke="white"
+          stroke="var(--lc-draw-stroke)"
           strokeWidth={data.thickness}
           strokeLinecap="round"
           strokeLinejoin="round"

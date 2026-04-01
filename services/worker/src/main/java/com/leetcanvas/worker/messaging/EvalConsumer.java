@@ -17,6 +17,12 @@ import org.springframework.stereotype.Component;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * AMQP consumer that orchestrates one evaluation flow per queue message.
+ *
+ * <p>Flow: validate payload, fetch eval metadata via gRPC, run code in Docker, persist terminal
+ * status/result back to submissions storage.
+ */
 @Component
 public class EvalConsumer {
 

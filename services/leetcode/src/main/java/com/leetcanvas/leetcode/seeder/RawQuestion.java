@@ -6,25 +6,48 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/*
- * These are plain Java records — immutable data carriers introduced in Java 16.
- * They're ideal for DTOs (Data Transfer Objects) because you get:
- *   - A constructor with all fields
- *   - getters (via field name, not getXxx)
- *   - equals, hashCode, toString for free
+/**
+ * Top-level item wrapper in the imported JSONL corpus.
  *
- * @JsonIgnoreProperties(ignoreUnknown = true) tells Jackson to silently skip
- * any JSON fields we haven't declared here. Without it, Jackson throws on
- * unknown fields — too brittle for a third-party API response.
+ * <p>These package-private records exist only for seeding. They intentionally keep the payload
+ * close to source shape and ignore unknown fields for compatibility with upstream schema changes.
  */
-
 @JsonIgnoreProperties(ignoreUnknown = true)
-// package-private: only used within this package, so no `public` needed
 record RawItem(RawData data) {}
 
+/**
+ * Wrapper around question payload used in dataset entries.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 record RawData(RawQuestion question) {}
 
+/**
+ * Source question payload used by {@link DataSeeder}.
+ *
+ * @param questionId legacy source question id
+ * @param title display title
+ * @param content rich problem statement
+ * @param likes upvote count
+ * @param dislikes downvote count
+ * @param stats serialized acceptance/submission statistics
+ * @param similarQuestions serialized similar-question payload
+ * @param categoryTitle broad category from source
+ * @param hints hint list
+ * @param topicTags source tags
+ * @param companyTags source company tags payload
+ * @param difficulty source difficulty
+ * @param isPaidOnly premium-gated flag
+ * @param solution source solution metadata
+ * @param hasSolution whether a solution is available
+ * @param hasVideoSolution whether a video solution exists
+ * @param url source URL
+ * @param taskId alternate dataset id format
+ * @param problemDescription alternate plain-text statement
+ * @param inputOutput alternate test-case payload
+ * @param prompt hidden execution scaffold prepended by the worker
+ * @param entryPoint invocation expression used by worker runtime
+ * @param starterCode editor-visible starter template
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 record RawQuestion(
     // Old API format fields (from LeetCode's official API)
@@ -72,11 +95,20 @@ record RawQuestion(
     String starterCode
 ) {}
 
+/**
+ * Raw topic tag from source payload.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 record RawTag(String name) {}
 
+/**
+ * Raw solution metadata from source payload.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 record RawSolution(Boolean canSeeDetail, String content) {}
 
+/**
+ * Raw test case pair from source payload.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 record RawInputOutput(String input, String output) {}

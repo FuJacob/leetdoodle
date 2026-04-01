@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { EditorView, basicSetup } from "codemirror";
 import { python } from "@codemirror/lang-python";
 import type { TextEdit } from "../../shared/crdt";
+import { useTheme } from "../../theme/useTheme";
 import type {
   CanvasNode,
   CodeNode,
@@ -37,8 +38,16 @@ interface Props {
   onTextEdits: (nodeId: string, edits: TextEdit[]) => void;
 }
 
-function getLanguageExtension(_lang: string) {
+function getLanguageExtension() {
   return python();
+}
+
+function cssVar(name: string, fallback: string): string {
+  if (typeof document === "undefined") return fallback;
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return value.length > 0 ? value : fallback;
 }
 
 function isProblemNode(node: CanvasNode | undefined): node is ProblemNode {
@@ -81,6 +90,7 @@ export function CodeNodeRenderer({
   onSpawn,
   onTextEdits,
 }: Props) {
+  const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const applyingRemoteRef = useRef(false);
@@ -128,11 +138,18 @@ export function CodeNodeRenderer({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const editorBackground = cssVar("--lc-editor-bg", "#18181b");
+    const editorText = cssVar("--lc-text-primary", "#e4e4e7");
+    const editorGutter = cssVar("--lc-editor-gutter", "#18181b");
+    const editorMuted = cssVar("--lc-text-muted", "#71717a");
+    const editorActiveLine = cssVar("--lc-editor-active-line", "#27272a");
+    const editorCaret = cssVar("--lc-editor-caret", "#e4e4e7");
+
     const view = new EditorView({
       doc: node.data.content,
       extensions: [
         basicSetup,
-        getLanguageExtension(node.data.language),
+        getLanguageExtension(),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           if (applyingRemoteRef.current) return;
@@ -154,12 +171,16 @@ export function CodeNodeRenderer({
           }
         }),
         EditorView.theme({
-          "&": { backgroundColor: "#18181b", color: "#e4e4e7" },
-          ".cm-content": { caretColor: "#e4e4e7" },
-          ".cm-cursor": { borderLeftColor: "#e4e4e7" },
-          ".cm-gutters": { backgroundColor: "#18181b", color: "#71717a", border: "none" },
-          ".cm-activeLineGutter": { backgroundColor: "#27272a" },
-          ".cm-activeLine": { backgroundColor: "#27272a" },
+          "&": { backgroundColor: editorBackground, color: editorText },
+          ".cm-content": { caretColor: editorCaret },
+          ".cm-cursor": { borderLeftColor: editorCaret },
+          ".cm-gutters": {
+            backgroundColor: editorGutter,
+            color: editorMuted,
+            border: "none",
+          },
+          ".cm-activeLineGutter": { backgroundColor: editorActiveLine },
+          ".cm-activeLine": { backgroundColor: editorActiveLine },
         }),
       ],
       parent: containerRef.current,
@@ -171,9 +192,10 @@ export function CodeNodeRenderer({
       view.destroy();
       viewRef.current = null;
     };
-    // Mount-only editor creation. Remote updates are applied via separate effect.
+    // Re-create only when theme changes. Doc updates are handled by the
+    // separate syncing effect below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -284,17 +306,17 @@ export function CodeNodeRenderer({
 
   return (
     <div
-      className="absolute cursor-grab select-none border border-zinc-700 bg-zinc-900 active:cursor-grabbing"
+      className="absolute cursor-grab select-none border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
       style={{ left: node.x, top: node.y, width: node.width }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
-      <div className="flex items-center justify-between border-b border-zinc-700 p-2">
-        <span className="text-xs font-semibold text-zinc-400">Code</span>
+      <div className="flex items-center justify-between border-b border-(--lc-border-default) p-2">
+        <span className="text-xs font-semibold text-(--lc-text-secondary)">Code</span>
         <div className="flex items-center gap-2">
           {canRun && (
             <button
               type="button"
-              className="rounded bg-zinc-700 px-2 py-1 text-[10px] font-semibold text-zinc-100 hover:bg-zinc-600 disabled:opacity-50"
+              className="rounded border border-(--lc-border-default) bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-text-primary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) disabled:opacity-50"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={handleRunClick}
               disabled={isRunning}
@@ -302,7 +324,7 @@ export function CodeNodeRenderer({
               {isRunning ? "Running…" : "Run"}
             </button>
           )}
-          <span className="text-[10px] text-zinc-500">{node.data.language}</span>
+          <span className="text-[10px] text-(--lc-text-muted)">{node.data.language}</span>
         </div>
       </div>
       <div

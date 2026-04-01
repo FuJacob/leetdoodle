@@ -23,6 +23,7 @@ import { SelectionOverlay } from "./SelectionOverlay";
 import { CanvasPresenceBar } from "./CanvasPresenceBar";
 import { SpawnPanel } from "./SpawnPanel";
 import { ToolPanel } from "./ToolPanel";
+import { ThemePanel } from "./ThemePanel";
 import { useSelectToolController } from "./tools/useSelectToolController";
 import { useDrawToolController } from "../features/draw/hooks/useDrawToolController";
 import { useActiveToolController } from "./tools/useActiveToolController";
@@ -350,9 +351,9 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   return (
     <div
       ref={viewportRef}
-      className="fixed inset-0 overflow-hidden bg-zinc-950"
+      className="fixed inset-0 overflow-hidden bg-(--lc-canvas-bg)"
       style={{
-        backgroundImage: `radial-gradient(circle, var(--color-zinc-700) ${gridDotRadiusPx}px, transparent ${gridDotRadiusPx}px)`,
+        backgroundImage: `radial-gradient(circle, var(--lc-canvas-dot) ${gridDotRadiusPx}px, transparent ${gridDotRadiusPx}px)`,
         backgroundSize: `${gridSpacingPx}px ${gridSpacingPx}px`,
         backgroundPosition: `${transform.x}px ${transform.y}px`,
       }}
@@ -362,6 +363,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     >
       <div className="absolute right-4 top-4 z-60 flex items-start gap-3">
         <CanvasPresenceBar users={users} localUserId={userId} />
+        <ThemePanel />
         <ToolPanel
           tool={tool}
           onToolChange={setTool}

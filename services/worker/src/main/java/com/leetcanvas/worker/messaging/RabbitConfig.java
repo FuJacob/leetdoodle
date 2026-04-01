@@ -14,6 +14,12 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * RabbitMQ topology and listener-converter wiring for worker job consumption.
+ *
+ * <p>Defines exchange/queue/binding names shared with Debezium and configures JSON
+ * deserialization into {@link EvalJob}.
+ */
 @Configuration
 public class RabbitConfig {
 

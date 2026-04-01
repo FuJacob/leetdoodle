@@ -14,6 +14,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * JDBC repository for {@code submissions.submissions}.
+ *
+ * <p>Encapsulates SQL for create/read/result-update operations used by both API and worker flows.
+ */
 @Repository
 public class SubmissionRepository {
 

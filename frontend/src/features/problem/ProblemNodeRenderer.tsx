@@ -82,7 +82,7 @@ export function ProblemNodeRenderer({
         likes: p.likes,
         dislikes: p.dislikes,
         stats: p.stats ?? null,
-        starterCode: p.prompt ?? null,
+        starterCode: p.starterCode ?? null,
       };
       onUpdate(node.id, { data });
     } catch {
@@ -97,7 +97,8 @@ export function ProblemNodeRenderer({
     }
   }
 
-  const base = "absolute select-none border border-zinc-700 bg-zinc-900 p-3";
+  const base =
+    "absolute select-none border border-(--lc-border-default) bg-(--lc-surface-1) p-3";
 
   const handleMouseEnter = () => setIsHovering(true);
   const handleMouseLeave = () => setIsHovering(false);
@@ -120,7 +121,7 @@ export function ProblemNodeRenderer({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="mb-2 text-xs font-semibold text-zinc-400">Problem</div>
+        <div className="mb-2 text-xs font-semibold text-(--lc-text-secondary)">Problem</div>
         {/* Stop pointer-down so typing in the input doesn't start a drag */}
         <div
           className="flex-1 min-h-0"
@@ -128,20 +129,20 @@ export function ProblemNodeRenderer({
         >
           <input
             type="text"
-            className="w-full bg-zinc-800 border border-zinc-600 text-xs text-zinc-100 px-2 py-1 outline-none placeholder:text-zinc-500"
+            className="w-full border border-(--lc-border-strong) bg-(--lc-surface-2) px-2 py-1 text-xs text-(--lc-text-primary) outline-none placeholder:text-(--lc-text-muted)"
             placeholder="https://leetcode.com/problems/two-sum/"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           />
           <button
-            className="mt-2 w-full bg-zinc-700 text-xs text-zinc-100 py-1 disabled:opacity-40"
+            className="mt-2 w-full border border-(--lc-border-default) bg-(--lc-surface-3) py-1 text-xs text-(--lc-text-primary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) disabled:opacity-40"
             onClick={handleCreate}
             disabled={loading || url.trim() === ""}
           >
             {loading ? "Loading…" : "Create"}
           </button>
-          {error && <div className="mt-1 text-xs text-red-400">{error}</div>}
+          {error && <div className="mt-1 text-xs text-(--lc-danger)">{error}</div>}
         </div>
       </div>
     );
@@ -163,7 +164,7 @@ export function ProblemNodeRenderer({
       onMouseLeave={handleMouseLeave}
     >
       <div className="flex items-baseline justify-between mb-1">
-        <div className="text-sm font-medium text-zinc-100">{title}</div>
+        <div className="text-sm font-medium text-(--lc-text-primary)">{title}</div>
         <div className={`text-xs ml-2 shrink-0 ${difficultyClass(difficulty)}`}>
           {difficulty}
         </div>
@@ -174,7 +175,7 @@ export function ProblemNodeRenderer({
           {tags.map((t) => (
             <span
               key={t.id}
-              className="text-[10px] text-zinc-400 border border-zinc-700 px-1"
+              className="border border-(--lc-border-default) px-1 text-[10px] text-(--lc-text-secondary)"
             >
               {t.name}
             </span>
@@ -184,11 +185,11 @@ export function ProblemNodeRenderer({
 
       {/* Render HTML content directly — safe since it's from our own DB */}
       <div
-        className="text-xs text-zinc-400 mb-2 leading-relaxed flex-1 min-h-0 overflow-y-auto [&_code]:bg-zinc-800 [&_code]:px-1 [&_code]:text-zinc-300 [&_pre]:bg-zinc-800 [&_pre]:p-2 [&_pre]:overflow-x-auto [&_strong]:text-zinc-300 [&_a]:text-blue-400 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+        className="mb-2 min-h-0 flex-1 overflow-y-auto text-xs leading-relaxed text-(--lc-text-secondary) [&_a]:text-(--lc-link) [&_code]:bg-(--lc-surface-2) [&_code]:px-1 [&_code]:text-(--lc-text-secondary) [&_ol]:list-decimal [&_ol]:pl-4 [&_pre]:overflow-x-auto [&_pre]:bg-(--lc-surface-2) [&_pre]:p-2 [&_strong]:text-(--lc-text-primary) [&_ul]:list-disc [&_ul]:pl-4"
         dangerouslySetInnerHTML={{ __html: content }}
       />
 
-      <div className="flex gap-3 text-[10px] text-zinc-500">
+      <div className="flex gap-3 text-[10px] text-(--lc-text-muted)">
         <span>▲ {likes}</span>
         <span>▼ {dislikes}</span>
         {parsedStats && <span>✓ {parsedStats.acRate}</span>}
@@ -204,7 +205,7 @@ export function ProblemNodeRenderer({
         {isHovering && !showAddNodePanel && (
           <div className="flex justify-center">
             <button
-              className="flex items-center gap-1 border border-zinc-700 bg-zinc-900 px-3 py-1 text-[10px] text-zinc-400 transition hover:border-blue-500 hover:text-blue-400"
+              className="flex items-center gap-1 border border-(--lc-border-default) bg-(--lc-surface-1) px-3 py-1 text-[10px] text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
               onClick={handleAddNode}
             >
               <IconPlus size={12} stroke={2} />
@@ -215,12 +216,12 @@ export function ProblemNodeRenderer({
 
         {showAddNodePanel && (
           <div
-            className="relative mt-2 p-2 bg-zinc-800 border border-zinc-600 text-xs"
+            className="relative mt-2 border border-(--lc-border-strong) bg-(--lc-surface-2) p-2 text-xs"
             onPointerDown={(e) => e.stopPropagation()}
           >
             <button
               onClick={handleCloseAddNodePanel}
-              className="absolute top-1 right-1 text-zinc-500 transition hover:text-zinc-300"
+              className="absolute right-1 top-1 text-(--lc-text-muted) transition hover:text-(--lc-text-secondary)"
               aria-label="Close add node panel"
             >
               <IconX size={12} stroke={2} />
@@ -233,7 +234,7 @@ export function ProblemNodeRenderer({
                     onSpawn(type, node.id);
                     handleCloseAddNodePanel();
                   }}
-                  className="flex items-center gap-1 border border-zinc-700 bg-zinc-900 px-2 py-1 text-zinc-200 transition hover:border-blue-500 hover:text-blue-400"
+                  className="flex items-center gap-1 border border-(--lc-border-default) bg-(--lc-surface-1) px-2 py-1 text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
                 >
                   <Icon size={13} stroke={1.8} />
                   <span>{label}</span>

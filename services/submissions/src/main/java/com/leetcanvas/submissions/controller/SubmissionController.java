@@ -8,6 +8,12 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * REST controller for asynchronous code submission workflows.
+ *
+ * <p>Clients create a submission id through {@code POST} and poll terminal state through
+ * {@code GET}.
+ */
 @RestController
 @RequestMapping("/api/submissions")
 @CrossOrigin

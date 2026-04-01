@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
+    "lint:canonical": "bash ../scripts/check-tailwind-canonical.sh",
+    "lint:all": "pnpm lint && pnpm lint:canonical",
     "preview": "vite preview"
   },
   "dependencies": {
