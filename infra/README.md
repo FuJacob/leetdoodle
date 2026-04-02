@@ -6,6 +6,7 @@ This directory contains shared local infrastructure used by backend services.
 - `compose/docker-compose.dev.yml`: local infra stack (Postgres, RabbitMQ, Debezium)
 - `compose/docker-compose.hobby.yml`: single-host full backend stack
   (collab + leetcode + submissions + worker + Postgres + RabbitMQ + Debezium)
+- `bundle/hobby-v1/`: source-free deployment template used to package a shareable hobby bundle
 
 ## Debezium
 - `debezium/conf/application.properties`: Debezium Server config
@@ -19,3 +20,4 @@ Use repo-root scripts:
 - `./scripts/backend-up.sh` — start infra + all backend Spring services
 - `./scripts/backend-down.sh` — stop backend Spring services + infra
   - optional: `./scripts/backend-down.sh --keep-infra`
+- `./scripts/package-hobby-bundle.sh` — build a source-free `linux/amd64` deployment bundle under `.artifacts/`

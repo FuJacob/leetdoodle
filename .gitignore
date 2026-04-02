@@ -29,3 +29,6 @@ leetcode_questions.json
 
 # Runs
 .run/
+
+# Generated deployment bundles
+.artifacts/
