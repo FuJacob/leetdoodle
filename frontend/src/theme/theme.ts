@@ -1,6 +1,6 @@
 export type ThemeMode = "light" | "dark";
 
-export const THEME_STORAGE_KEY = "leetcanvas.theme.isDark";
+export const THEME_STORAGE_KEY = "leetdoodle.theme.isDark";
 
 function safeGetThemeFlag(): string | null {
   try {

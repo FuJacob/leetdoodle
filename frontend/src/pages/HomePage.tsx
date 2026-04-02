@@ -56,7 +56,7 @@ export function HomePage() {
   return (
     <div className="flex h-full items-center justify-center bg-(--lc-canvas-bg) px-4">
       <div className="w-full max-w-md border border-(--lc-border-default) bg-(--lc-surface-1) p-5">
-        <h1 className="text-2xl font-semibold text-(--lc-text-primary)">LeetCanvas</h1>
+        <h1 className="text-2xl font-semibold text-(--lc-text-primary)">LeetDoodle</h1>
         <p className="mt-1 text-sm text-(--lc-text-muted)">
           Pick a display name, then create or join a canvas.
         </p>

@@ -3,7 +3,7 @@ export interface SessionParticipant {
   displayName: string;
 }
 
-const PARTICIPANT_STORAGE_KEY = "leetcanvas.participant";
+const PARTICIPANT_STORAGE_KEY = "leetdoodle.participant";
 const LEGACY_USER_ID_STORAGE_KEY = "userId";
 const MAX_DISPLAY_NAME_LENGTH = 24;
 const UUID_REGEX =

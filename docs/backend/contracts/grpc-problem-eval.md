@@ -7,14 +7,14 @@ evaluation metadata and test cases.
 
 - Host: `localhost`
 - Port: `9090`
-- Service: `com.leetcanvas.grpc.ProblemService`
+- Service: `com.leetdoodle.grpc.ProblemService`
 - Method: `GetProblemEval`
 
 Primary code references:
 
 - proto source: `services/grpc-api/src/main/proto/leetcode_service.proto`
-- server impl: `services/leetcode/src/main/java/com/leetcanvas/leetcode/grpc/ProblemGrpcService.java`
-- client wrapper: `services/worker/src/main/java/com/leetcanvas/worker/grpc/LeetcodeGrpcClient.java`
+- server impl: `services/leetcode/src/main/java/com/leetdoodle/leetcode/grpc/ProblemGrpcService.java`
+- client wrapper: `services/worker/src/main/java/com/leetdoodle/worker/grpc/LeetcodeGrpcClient.java`
 
 ## Request
 

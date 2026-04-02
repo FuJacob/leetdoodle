@@ -1,10 +1,10 @@
-# LeetCanvas
+# LeetDoodle
 
 Collaborative algorithm practice workspace with a node-based canvas, real-time presence, and asynchronous code evaluation.
 
 ## Why This Project Exists
 
-LeetCanvas combines three things that are usually separate:
+LeetDoodle combines three things that are usually separate:
 
 - A visual canvas for problem-solving workflows.
 - Multiplayer collaboration (presence, cursor, shared node state).

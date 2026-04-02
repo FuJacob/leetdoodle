@@ -1,6 +1,6 @@
 # Backend Documentation
 
-This folder is the backend living documentation for LeetCanvas.
+This folder is the backend living documentation for LeetDoodle.
 
 ## Docs-As-Code Rules
 

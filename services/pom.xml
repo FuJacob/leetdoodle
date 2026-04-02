@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.leetcanvas</groupId>
+  <groupId>com.leetdoodle</groupId>
   <artifactId>services</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <!--
@@ -90,7 +90,7 @@
 
       <!-- Shared gRPC API stubs (generated from the .proto file) -->
       <dependency>
-        <groupId>com.leetcanvas</groupId>
+        <groupId>com.leetdoodle</groupId>
         <artifactId>grpc-api</artifactId>
         <version>${project.version}</version>
       </dependency>

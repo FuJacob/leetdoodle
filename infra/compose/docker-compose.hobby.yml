@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_DB: leetcanvas
-      POSTGRES_USER: leetcanvas
-      POSTGRES_PASSWORD: leetcanvas
+      POSTGRES_DB: leetdoodle
+      POSTGRES_USER: leetdoodle
+      POSTGRES_PASSWORD: leetdoodle
     command: >
       postgres
       -c wal_level=logical
@@ -15,7 +15,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U leetcanvas"]
+      test: ["CMD-SHELL", "pg_isready -U leetdoodle"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,8 +24,8 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     environment:
-      RABBITMQ_DEFAULT_USER: leetcanvas
-      RABBITMQ_DEFAULT_PASS: leetcanvas
+      RABBITMQ_DEFAULT_USER: leetdoodle
+      RABBITMQ_DEFAULT_PASS: leetdoodle
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -62,9 +62,9 @@ services:
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetcanvas
-      SPRING_DATASOURCE_USERNAME: leetcanvas
-      SPRING_DATASOURCE_PASSWORD: leetcanvas
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetdoodle
+      SPRING_DATASOURCE_USERNAME: leetdoodle
+      SPRING_DATASOURCE_PASSWORD: leetdoodle
       GRPC_SERVER_PORT: 9090
       LEETCODE_SEEDER_OFFICIAL_QUESTIONS_PATH: file:/app/data/seed/official-questions.json
       LEETCODE_SEEDER_EVAL_METADATA_PATH: file:/app/data/seed/test-cases.jsonl
@@ -86,13 +86,13 @@ services:
     ports:
       - "8082:8082"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetcanvas
-      SPRING_DATASOURCE_USERNAME: leetcanvas
-      SPRING_DATASOURCE_PASSWORD: leetcanvas
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetdoodle
+      SPRING_DATASOURCE_USERNAME: leetdoodle
+      SPRING_DATASOURCE_PASSWORD: leetdoodle
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: leetcanvas
-      SPRING_RABBITMQ_PASSWORD: leetcanvas
+      SPRING_RABBITMQ_USERNAME: leetdoodle
+      SPRING_RABBITMQ_PASSWORD: leetdoodle
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,13 +110,13 @@ services:
     ports:
       - "8083:8083"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetcanvas
-      SPRING_DATASOURCE_USERNAME: leetcanvas
-      SPRING_DATASOURCE_PASSWORD: leetcanvas
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetdoodle
+      SPRING_DATASOURCE_USERNAME: leetdoodle
+      SPRING_DATASOURCE_PASSWORD: leetdoodle
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: leetcanvas
-      SPRING_RABBITMQ_PASSWORD: leetcanvas
+      SPRING_RABBITMQ_USERNAME: leetdoodle
+      SPRING_RABBITMQ_PASSWORD: leetdoodle
       WORKER_DOCKER_HOST: unix:///var/run/docker.sock
       GRPC_CLIENT_LEETCODE_SERVICE_ADDRESS: static://leetcode:9090
       GRPC_CLIENT_LEETCODE_SERVICE_NEGOTIATION_TYPE: plaintext

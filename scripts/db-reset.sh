@@ -5,9 +5,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-5432}"
-DB_NAME="${DB_NAME:-leetcanvas}"
-DB_USER="${DB_USER:-leetcanvas}"
-DB_PASSWORD="${DB_PASSWORD:-leetcanvas}"
+DB_NAME="${DB_NAME:-leetdoodle}"
+DB_USER="${DB_USER:-leetdoodle}"
+DB_PASSWORD="${DB_PASSWORD:-leetdoodle}"
 
 ASSUME_YES="${1:-}"
 

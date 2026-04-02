@@ -14,7 +14,7 @@ flowchart TB
     end
 
     subgraph DATA[Data and Messaging]
-      PG[(PostgreSQL\nleetcanvas)]
+      PG[(PostgreSQL\nleetdoodle)]
       RMQ[(RabbitMQ\neval exchange)]
       DBZ[Debezium Server\nOutbox Router]
     end

@@ -1,13 +1,13 @@
 # C4 Level 1: System Context
 
-This view shows LeetCanvas backend interactions with users and supporting infrastructure.
+This view shows LeetDoodle backend interactions with users and supporting infrastructure.
 
 ```mermaid
 flowchart LR
     U["Developer / Learner\n(Frontend User)"]
-    FE[LeetCanvas Frontend\n(Vite + React)]
+    FE[LeetDoodle Frontend\n(Vite + React)]
 
-    subgraph LC[LeetCanvas Backend System]
+    subgraph LC[LeetDoodle Backend System]
       COL[Collab Service\nWebSocket relay]
       LEE[Leetcode Service\nProblems + test cases API]
       SUB[Submissions Service\nSubmission intake API]

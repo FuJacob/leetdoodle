@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.leetcanvas</groupId>
+    <groupId>com.leetdoodle</groupId>
     <artifactId>services</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
@@ -75,7 +75,7 @@
 
     <!-- Shared proto stubs (generated message + service classes) -->
     <dependency>
-      <groupId>com.leetcanvas</groupId>
+      <groupId>com.leetdoodle</groupId>
       <artifactId>grpc-api</artifactId>
     </dependency>
 
