@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.*;
 
 /**
@@ -45,14 +46,12 @@ public class ContainerPool {
 
     // Language → Docker image mapping
     private static final Map<String, String> IMAGES = Map.of(
-        "python",     "python:3.12-alpine",
-        "javascript", "node:20-alpine"
-    );
+            "python", "python:3.12-alpine");
 
     @Value("${worker.docker.host:unix:///var/run/docker.sock}")
     private String dockerHost;
 
-    @Value("${worker.pool.size:2}")
+    @Value("${worker.pool.size:1}")
     private int poolSize;
 
     private DockerClient docker;
@@ -65,26 +64,26 @@ public class ContainerPool {
 
     @PostConstruct
     public void init() {
+        String resolvedDockerHost = Objects.requireNonNull(dockerHost);
         // WHY SET dockerHost IN BOTH PLACES?
         // DefaultDockerClientConfig reads DOCKER_HOST from the environment,
         // which silently overrides whatever URI we pass to the HTTP client builder.
         // Pinning the same value in the config too ensures the library agrees
         // on which socket to use, regardless of what's in the environment.
         var config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-            .withDockerHost(dockerHost)
-            .build();
+                .withDockerHost(resolvedDockerHost)
+                .build();
         docker = DockerClientImpl.getInstance(
-            config,
-            new ZerodepDockerHttpClient.Builder()
-                .dockerHost(URI.create(dockerHost))
-                .connectionTimeout(Duration.ofSeconds(10))
-                .build()
-        );
+                config,
+                new ZerodepDockerHttpClient.Builder()
+                        .dockerHost(URI.create(resolvedDockerHost))
+                        .connectionTimeout(Duration.ofSeconds(10))
+                        .build());
 
         // Pre-warm containers for each supported language
         for (var entry : IMAGES.entrySet()) {
             String language = entry.getKey();
-            String image    = entry.getValue();
+            String image = entry.getValue();
             ensureImageAvailable(image);
             var queue = new LinkedBlockingQueue<String>(poolSize);
             pools.put(language, queue);
@@ -100,19 +99,21 @@ public class ContainerPool {
      * This prevents startup failures on fresh machines where the runtime image
      * hasn't been pulled yet.
      */
+    @SuppressWarnings("deprecation")
     private void ensureImageAvailable(String image) {
+        String resolvedImage = Objects.requireNonNull(image);
         try {
-            docker.inspectImageCmd(image).exec();
+            docker.inspectImageCmd(resolvedImage).exec();
         } catch (NotFoundException ignored) {
-            log.info("Image {} not found locally; pulling...", image);
+            log.info("Image {} not found locally; pulling...", resolvedImage);
             try {
-                docker.pullImageCmd(image)
-                    .exec(new PullImageResultCallback())
-                    .awaitCompletion();
-                log.info("Pulled image {}", image);
+                docker.pullImageCmd(resolvedImage)
+                        .exec(new PullImageResultCallback())
+                        .awaitCompletion();
+                log.info("Pulled image {}", resolvedImage);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted while pulling image " + image, e);
+                throw new RuntimeException("Interrupted while pulling image " + resolvedImage, e);
             }
         }
     }
@@ -128,18 +129,19 @@ public class ContainerPool {
      */
     public String borrow(String language) throws InterruptedException {
         var queue = pools.get(language);
-        if (queue == null) throw new IllegalArgumentException("Unsupported language: " + language);
+        if (queue == null)
+            throw new IllegalArgumentException("Unsupported language: " + language);
         int availableBefore = queue.size();
         long startedAt = System.currentTimeMillis();
         String containerId = queue.poll(30, TimeUnit.SECONDS);
         long waitedMs = System.currentTimeMillis() - startedAt;
         if (containerId == null) {
             log.error("pool.borrow.timeout language={} waitedMs={} availableBefore={} availableAfter={}",
-                language, waitedMs, availableBefore, queue.size());
+                    language, waitedMs, availableBefore, queue.size());
             throw new RuntimeException("Timed out waiting for a container");
         }
         log.info("pool.borrow.ok language={} container={} waitedMs={} availableBefore={} availableAfter={}",
-            language, shortId(containerId), waitedMs, availableBefore, queue.size());
+                language, shortId(containerId), waitedMs, availableBefore, queue.size());
         return containerId;
     }
 
@@ -154,7 +156,7 @@ public class ContainerPool {
         int availableBefore = pools.get(language).size();
         destroyContainer(containerId);
         log.info("pool.release.destroyed language={} container={} availableBefore={}",
-            language, shortId(containerId), availableBefore);
+                language, shortId(containerId), availableBefore);
 
         String image = IMAGES.get(language);
         refillExecutor.submit(() -> {
@@ -162,7 +164,7 @@ public class ContainerPool {
                 String replacement = createAndStart(language, image);
                 pools.get(language).add(replacement);
                 log.info("pool.release.refilled language={} replacement={} availableNow={}",
-                    language, shortId(replacement), pools.get(language).size());
+                        language, shortId(replacement), pools.get(language).size());
             } catch (Exception e) {
                 log.error("Failed to refill pool for {}", language, e);
             }
@@ -170,31 +172,32 @@ public class ContainerPool {
     }
 
     private String createAndStart(String language, String image) {
-        String id = docker.createContainerCmd(image)
-            .withCmd("sleep", "infinity")  // idle container waiting for exec
-            .withNetworkDisabled(true)      // no outbound network from submitted code
-            .withHostConfig(HostConfig.newHostConfig()
-                .withMemory(256 * 1024 * 1024L) // 256 MB RAM cap
-                .withCpuPeriod(100_000L)
-                .withCpuQuota(50_000L))          // 50% of one CPU core
-            .exec()
-            .getId();
+        String id = docker.createContainerCmd(Objects.requireNonNull(image))
+                .withCmd("sleep", "infinity") // idle container waiting for exec
+                .withNetworkDisabled(true) // no outbound network from submitted code
+                .withHostConfig(HostConfig.newHostConfig()
+                        .withMemory(256 * 1024 * 1024L) // 256 MB RAM cap
+                        .withCpuPeriod(100_000L)
+                        .withCpuQuota(50_000L)) // 50% of one CPU core
+                .exec()
+                .getId();
 
-        docker.startContainerCmd(id).exec();
+        docker.startContainerCmd(Objects.requireNonNull(id)).exec();
         log.debug("Started container {} for {}", id.substring(0, 12), language);
         return id;
     }
 
     private void destroyContainer(String id) {
         try {
-            docker.removeContainerCmd(id).withForce(true).exec();
+            docker.removeContainerCmd(Objects.requireNonNull(id)).withForce(true).exec();
         } catch (Exception e) {
-            log.warn("Failed to remove container {}: {}", id.substring(0, 12), e.getMessage());
+            log.warn("Failed to remove container {}: {}", shortId(id), e.getMessage());
         }
     }
 
     private String shortId(String value) {
-        if (value == null || value.isBlank()) return "unknown";
+        if (value == null || value.isBlank())
+            return "unknown";
         return value.length() <= 12 ? value : value.substring(0, 12);
     }
 
@@ -204,5 +207,7 @@ public class ContainerPool {
         pools.values().forEach(queue -> queue.forEach(this::destroyContainer));
     }
 
-    public DockerClient docker() { return docker; }
+    public DockerClient docker() {
+        return docker;
+    }
 }

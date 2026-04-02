@@ -135,7 +135,9 @@ export function SelectionOverlay({
   onLocalCursorModeChange,
 }: Props) {
   const localSelectionColor = "var(--lc-selection-local)";
-  const [showAddNodePanel, setShowAddNodePanel] = useState(false);
+  const [addNodePanelOwnerId, setAddNodePanelOwnerId] = useState<string | null>(
+    null,
+  );
   const dragRef = useRef<{
     active: boolean;
     corner: Corner;
@@ -165,9 +167,8 @@ export function SelectionOverlay({
     }
   }, [selectedNodes.length, onLocalCursorModeChange]);
 
-  useEffect(() => {
-    setShowAddNodePanel(false);
-  }, [singleSelectedNode?.id]);
+  const showAddNodePanel =
+    singleSelectedNode != null && addNodePanelOwnerId === singleSelectedNode.id;
 
   const handleDragStart = useCallback(
     (e: React.PointerEvent, corner: Corner) => {
@@ -244,14 +245,20 @@ export function SelectionOverlay({
   }, [singleSelectedNode, onDelete]);
 
   const handleAddNodeToggle = useCallback(() => {
-    setShowAddNodePanel((prev) => !prev);
-  }, []);
+    if (!singleSelectedNode) {
+      setAddNodePanelOwnerId(null);
+      return;
+    }
+    setAddNodePanelOwnerId((prev) =>
+      prev === singleSelectedNode.id ? null : singleSelectedNode.id,
+    );
+  }, [singleSelectedNode]);
 
   const handleSpawnFromSelected = useCallback(
     (type: NodeType) => {
       if (!singleSelectedNode) return;
       onSpawn(type, singleSelectedNode.id);
-      setShowAddNodePanel(false);
+      setAddNodePanelOwnerId(null);
     },
     [singleSelectedNode, onSpawn],
   );

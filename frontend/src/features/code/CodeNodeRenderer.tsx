@@ -14,8 +14,9 @@ import type {
   TestResultsNode,
   TestResultsRunState,
 } from "../../shared/nodes";
+import { SUBMISSIONS_SERVICE_URL } from "../../shared/config/env";
 
-const SUBMISSIONS_URL = "http://localhost:8082/api/submissions";
+const SUBMISSIONS_URL = `${SUBMISSIONS_SERVICE_URL}/api/submissions`;
 const TERMINAL_STATUSES = new Set(["ACCEPTED", "WRONG_ANSWER", "RUNTIME_ERROR", "TIME_LIMIT_EXCEEDED"]);
 
 function statusToRunState(status: string): TestResultsRunState {

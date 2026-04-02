@@ -2,9 +2,12 @@ package com.leetcanvas.collab.config;
 
 import com.leetcanvas.collab.handler.CanvasWebSocketHandler;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+
+import java.util.Objects;
 
 /**
  * Registers our WebSocket handler with Spring.
@@ -25,15 +28,15 @@ public class WebSocketConfig implements WebSocketConfigurer {
     // This pattern is called Dependency Injection (DI) — instead of calling
     // `new CanvasWebSocketHandler()` ourselves, we declare what we need and
     // Spring creates and provides it. Makes testing much easier.
-    private final CanvasWebSocketHandler handler;
+    private final @NonNull CanvasWebSocketHandler handler;
 
-    public WebSocketConfig(CanvasWebSocketHandler handler) {
+    public WebSocketConfig(@NonNull CanvasWebSocketHandler handler) {
         this.handler = handler;
     }
 
     @Override
-    public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(handler, "/ws")
+    public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
+        registry.addHandler(Objects.requireNonNull(handler), "/ws")
                 // CORS (Cross-Origin Resource Sharing): browsers block WebSocket
                 // connections from a different origin by default. Our frontend
                 // runs on localhost:5173, the backend on localhost:8080 — different

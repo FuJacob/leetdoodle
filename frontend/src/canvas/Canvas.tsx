@@ -330,6 +330,7 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
     dragPointerUp,
     collabPointerMove,
     viewportRef,
+    transform,
     transformRef,
     nodesRef,
     selectedNodeIds,

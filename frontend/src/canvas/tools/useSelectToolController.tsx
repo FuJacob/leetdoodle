@@ -21,6 +21,7 @@ interface SelectToolControllerDeps {
   dragPointerUp: () => void;
   collabPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   viewportRef: React.RefObject<HTMLDivElement | null>;
+  transform: Transform;
   transformRef: React.RefObject<Transform>;
   nodesRef: React.RefObject<CanvasNode[]>;
   selectedNodeIds: Set<string>;
@@ -59,6 +60,7 @@ export function useSelectToolController({
   dragPointerUp,
   collabPointerMove,
   viewportRef,
+  transform,
   transformRef,
   nodesRef,
   selectedNodeIds,
@@ -157,7 +159,6 @@ export function useSelectToolController({
     [selectNodes, selectedNodeIds, dragPointerDown],
   );
 
-  const transform = transformRef.current;
   const layers = marquee ? (
     <div
       className="absolute inset-0 z-30 pointer-events-none"

@@ -3,7 +3,6 @@ package com.leetcanvas.leetcode.repository;
 import com.leetcanvas.leetcode.model.ImmutableTestCase;
 import com.leetcanvas.leetcode.model.TestCase;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Repository;
 
 import java.sql.ResultSet;
@@ -12,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Manages test cases in the database.
@@ -48,7 +48,9 @@ public class TestCaseRepository {
       ));
     }
 
-    jdbc.batchUpdate(sql, batch.toArray(new Map[0]));
+    @SuppressWarnings("unchecked")
+    Map<String, ?>[] params = batch.toArray(Map[]::new);
+    jdbc.batchUpdate(sql, params);
   }
 
   /**
@@ -64,11 +66,11 @@ public class TestCaseRepository {
   }
 
   private TestCase mapRow(ResultSet rs) throws SQLException {
-    return ImmutableTestCase.builder()
-        .id(rs.getInt("id"))
-        .problemId(rs.getInt("problem_id"))
-        .input(rs.getString("input"))
-        .output(rs.getString("output"))
-        .build();
+        return ImmutableTestCase.builder()
+            .id(rs.getInt("id"))
+            .problemId(rs.getInt("problem_id"))
+            .input(Objects.requireNonNull(rs.getString("input")))
+            .output(Objects.requireNonNull(rs.getString("output")))
+            .build();
   }
 }

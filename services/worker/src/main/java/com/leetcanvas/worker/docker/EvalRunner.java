@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -170,31 +171,33 @@ public class EvalRunner {
         return new String[]{"sh", "-c", sh};
     }
 
+    @SuppressWarnings("deprecation")
     private ExecResult execInContainer(String containerId, String[] cmd) throws Exception {
         ExecCreateCmdResponse exec = pool.docker()
-            .execCreateCmd(containerId)
+            .execCreateCmd(Objects.requireNonNull(containerId))
             .withAttachStdout(true)
             .withAttachStderr(true)
             .withCmd(cmd)
             .exec();
+        String execId = Objects.requireNonNull(exec.getId());
 
         var stdout = new ByteArrayOutputStream();
         var stderr = new ByteArrayOutputStream();
         long startedAt = System.currentTimeMillis();
 
         boolean finished = pool.docker()
-            .execStartCmd(exec.getId())
+            .execStartCmd(execId)
             .exec(new ExecStartResultCallback(stdout, stderr))
             .awaitCompletion(timeoutSeconds, TimeUnit.SECONDS);
 
         Long exitCode = pool.docker()
-            .inspectExecCmd(exec.getId())
+            .inspectExecCmd(execId)
             .exec()
             .getExitCodeLong();
 
         long elapsedMs = System.currentTimeMillis() - startedAt;
         log.debug("eval.exec.complete container={} execId={} elapsedMs={} finished={} exitCode={}",
-            shortId(containerId), shortId(exec.getId()), elapsedMs, finished, exitCode);
+            shortId(containerId), shortId(execId), elapsedMs, finished, exitCode);
 
         return new ExecResult(
             stdout.toString(),

@@ -1,0 +1,21 @@
+FROM maven:3.9.11-eclipse-temurin-21 AS build
+
+ARG SERVICE_MODULE
+ARG SERVICE_ARTIFACT
+
+WORKDIR /workspace
+
+# Build from the services multi-module root so shared modules
+# (notably grpc-api) are resolved in a single Maven invocation.
+COPY . .
+RUN mvn -f pom.xml -pl ${SERVICE_MODULE} -am clean package -DskipTests
+
+FROM eclipse-temurin:21-jre AS runtime
+
+ARG SERVICE_MODULE
+ARG SERVICE_ARTIFACT
+
+WORKDIR /app
+COPY --from=build /workspace/${SERVICE_MODULE}/target/${SERVICE_ARTIFACT} /app/app.jar
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]

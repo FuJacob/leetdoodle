@@ -12,6 +12,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * JDBC repository for tag metadata and name-id resolution.
@@ -64,7 +65,7 @@ public class TagRepository {
     static Tag mapRow(ResultSet rs) throws SQLException {
         return ImmutableTag.builder()
             .id(rs.getInt("tag_id"))
-            .name(rs.getString("tag_name"))
+            .name(Objects.requireNonNull(rs.getString("tag_name")))
             .build();
     }
 }

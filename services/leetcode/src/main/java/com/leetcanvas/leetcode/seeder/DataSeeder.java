@@ -254,8 +254,8 @@ public class DataSeeder implements ApplicationRunner {
                             }
                             testCases.add(ImmutableTestCase.builder()
                                     .problemId(problemId)
-                                    .input(io.input())
-                                    .output(io.output())
+                                    .input(Objects.requireNonNull(io.input()))
+                                    .output(Objects.requireNonNull(io.output()))
                                     .build());
                         } catch (Exception e) {
                             skipped++;
@@ -301,10 +301,10 @@ public class DataSeeder implements ApplicationRunner {
         String starterCode = evalMetadata != null ? evalMetadata.starterCode() : null;
 
         return ImmutableProblem.builder()
-                .questionId(Integer.parseInt(officialQuestion.questionId()))
-                .title(officialQuestion.title())
+                .questionId(Integer.parseInt(Objects.requireNonNull(officialQuestion.questionId())))
+                .title(Objects.requireNonNull(officialQuestion.title()))
                 .content(officialQuestion.content())
-                .difficulty(officialQuestion.difficulty())
+                .difficulty(Objects.requireNonNull(officialQuestion.difficulty()))
                 .likes(officialQuestion.likes() != null ? officialQuestion.likes() : 0)
                 .dislikes(officialQuestion.dislikes() != null ? officialQuestion.dislikes() : 0)
                 .category(officialQuestion.categoryTitle())
@@ -314,7 +314,7 @@ public class DataSeeder implements ApplicationRunner {
                 .slug(extractSlug(officialQuestion.url()))
                 .url(officialQuestion.url())
                 .solutionContent(officialQuestion.solution() != null ? officialQuestion.solution().content() : null)
-                .hints(officialQuestion.hints() != null ? officialQuestion.hints() : List.of())
+                .hints(Objects.requireNonNull(officialQuestion.hints() != null ? officialQuestion.hints() : List.of()))
                 .similarQuestions(officialQuestion.similarQuestions())
                 .stats(officialQuestion.stats())
                 .prompt(prompt)

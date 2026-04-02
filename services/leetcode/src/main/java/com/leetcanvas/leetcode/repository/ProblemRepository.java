@@ -193,9 +193,9 @@ public class ProblemRepository {
             .id(rs.getInt("id"))
             .questionId(rs.getInt("question_id"))
             .slug(rs.getString("slug"))
-            .title(rs.getString("title"))
+            .title(Objects.requireNonNull(rs.getString("title")))
             .content(rs.getString("content"))
-            .difficulty(rs.getString("difficulty"))
+            .difficulty(Objects.requireNonNull(rs.getString("difficulty")))
             .likes(rs.getInt("likes"))
             .dislikes(rs.getInt("dislikes"))
             .category(rs.getString("category"))
@@ -204,7 +204,7 @@ public class ProblemRepository {
             .hasVideoSolution(rs.getBoolean("has_video_solution"))
             .url(rs.getString("url"))
             .solutionContent(rs.getString("solution_content"))
-            .hints(hints)
+            .hints(Objects.requireNonNull(hints))
             .similarQuestions(rs.getString("similar_questions"))
             .stats(rs.getString("stats"))
             .companyTags(rs.getString("company_tags"))
@@ -247,8 +247,8 @@ public class ProblemRepository {
         // Cast to Problem: Java generics are invariant, so List<ImmutableProblem>
         // is not a List<Problem> even though ImmutableProblem implements Problem.
         return problems.stream()
-            .map(p -> (Problem) ImmutableProblem.copyOf(p)
-                .withTags(tagsByProblemId.getOrDefault(p.id(), List.of())))
+            .map(p -> (Problem) ImmutableProblem.copyOf(Objects.requireNonNull(p))
+                .withTags(Objects.requireNonNull(tagsByProblemId.getOrDefault(p.id(), List.of()))))
             .toList();
     }
 

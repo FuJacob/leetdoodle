@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.leetcanvas.collab.model.ImmutableJoinMessage;
 import com.leetcanvas.collab.model.JoinMessage;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -17,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -223,7 +225,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * The client is the source of truth; the server is just a message router.
      */
     @Override
-    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+    protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
         JsonNode root = objectMapper.readTree(message.getPayload());
         JsonNode typeNode = root.get("type");
         if (typeNode == null) {
@@ -394,7 +396,9 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             ops.add(op);
         }
 
-        TextMessage outbound = new TextMessage(objectMapper.writeValueAsString(response));
+        TextMessage outbound = new TextMessage(
+            Objects.requireNonNull(objectMapper.writeValueAsString(response))
+        );
         sendToSession(session, outbound);
     }
 
@@ -431,7 +435,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     }
 
     private void broadcastToCanvas(String canvasId, String senderSessionId, String payload) throws Exception {
-        TextMessage outbound = new TextMessage(payload);
+        TextMessage outbound = new TextMessage(Objects.requireNonNull(payload));
         for (WebSocketSession peer : canvasSessions.getOrDefault(canvasId, Set.of())) {
             if (!peer.isOpen())
                 continue; // skip dead sessions
@@ -456,7 +460,9 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             userNode.put("displayName", user.displayName());
             userNode.put("color", user.color());
         }
-        sendToSession(session, new TextMessage(objectMapper.writeValueAsString(response)));
+        sendToSession(session, new TextMessage(
+            Objects.requireNonNull(objectMapper.writeValueAsString(response))
+        ));
     }
 
     private void broadcastUserJoin(String canvasId, String senderSessionId, CollabUser user) throws Exception {
@@ -481,7 +487,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             return;
         }
         synchronized (session) {
-            session.sendMessage(message);
+            session.sendMessage(Objects.requireNonNull(message));
         }
     }
 
@@ -527,7 +533,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * remove() on ConcurrentHashMap is atomic — safe to call from any thread.
      */
     @Override
-    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+    public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
         // remove() returns the old value atomically, giving us the canvasId to clean up
         String canvasId = sessionToCanvas.remove(session.getId());
         String userId = sessionToUserId.remove(session.getId());

@@ -9,8 +9,8 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -87,10 +87,10 @@ public class SubmissionRepository {
         return ImmutableSubmission.builder()
             .id(rs.getObject("id", UUID.class))
             .problemId(rs.getInt("problem_id"))
-            .userId(rs.getString("user_id"))
-            .language(rs.getString("language"))
-            .code(rs.getString("code"))
-            .status(rs.getString("status"))
+            .userId(Objects.requireNonNull(rs.getString("user_id")))
+            .language(Objects.requireNonNull(rs.getString("language")))
+            .code(Objects.requireNonNull(rs.getString("code")))
+            .status(Objects.requireNonNull(rs.getString("status")))
             .result(rs.getString("result"))
             .createdAt(rs.getTimestamp("created_at").toInstant())
             .completedAt(completedAt != null ? completedAt.toInstant() : null)

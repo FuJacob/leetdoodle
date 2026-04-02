@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -57,9 +58,9 @@ public class SubmissionService {
     public UUID submit(int problemId, String userId, String language, String code) {
         Submission submission = ImmutableSubmission.builder()
             .problemId(problemId)
-            .userId(userId)
-            .language(language)
-            .code(code)
+            .userId(Objects.requireNonNull(userId))
+            .language(Objects.requireNonNull(language))
+            .code(Objects.requireNonNull(code))
             .status("PENDING")
             .build();
 

@@ -1,0 +1,151 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: leetcanvas
+      POSTGRES_USER: leetcanvas
+      POSTGRES_PASSWORD: leetcanvas
+    command: >
+      postgres
+      -c wal_level=logical
+      -c max_replication_slots=10
+      -c max_wal_senders=10
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leetcanvas"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: leetcanvas
+      RABBITMQ_DEFAULT_PASS: leetcanvas
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  collab:
+    build:
+      context: ../../services
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_MODULE: collab
+        SERVICE_ARTIFACT: collab-0.0.1-SNAPSHOT.jar
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  leetcode:
+    build:
+      context: ../../services
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_MODULE: leetcode
+        SERVICE_ARTIFACT: leetcode-service-0.0.1-SNAPSHOT.jar
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetcanvas
+      SPRING_DATASOURCE_USERNAME: leetcanvas
+      SPRING_DATASOURCE_PASSWORD: leetcanvas
+      GRPC_SERVER_PORT: 9090
+      LEETCODE_SEEDER_OFFICIAL_QUESTIONS_PATH: file:/app/data/seed/official-questions.json
+      LEETCODE_SEEDER_EVAL_METADATA_PATH: file:/app/data/seed/test-cases.jsonl
+      LEETCODE_SEEDER_ENABLED: "true"
+    volumes:
+      - ../../services/leetcode/data/seed:/app/data/seed:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  submissions:
+    build:
+      context: ../../services
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_MODULE: submissions
+        SERVICE_ARTIFACT: submissions-0.0.1-SNAPSHOT.jar
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetcanvas
+      SPRING_DATASOURCE_USERNAME: leetcanvas
+      SPRING_DATASOURCE_PASSWORD: leetcanvas
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: leetcanvas
+      SPRING_RABBITMQ_PASSWORD: leetcanvas
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ../../services
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_MODULE: worker
+        SERVICE_ARTIFACT: worker-0.0.1-SNAPSHOT.jar
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/leetcanvas
+      SPRING_DATASOURCE_USERNAME: leetcanvas
+      SPRING_DATASOURCE_PASSWORD: leetcanvas
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: leetcanvas
+      SPRING_RABBITMQ_PASSWORD: leetcanvas
+      WORKER_DOCKER_HOST: unix:///var/run/docker.sock
+      GRPC_CLIENT_LEETCODE_SERVICE_ADDRESS: static://leetcode:9090
+      GRPC_CLIENT_LEETCODE_SERVICE_NEGOTIATION_TYPE: plaintext
+    volumes:
+      # Required for sandbox execution. This grants the worker control over the host Docker daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      leetcode:
+        condition: service_started
+    restart: unless-stopped
+
+  debezium:
+    image: debezium/server:2.7.3.Final
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      submissions:
+        condition: service_started
+    volumes:
+      - ../debezium/conf:/debezium/conf
+      - debezium-data:/debezium/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  debezium-data:

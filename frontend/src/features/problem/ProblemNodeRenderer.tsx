@@ -6,8 +6,8 @@ import type {
 } from "../../shared/nodes";
 import { extractSlug, parseStats, difficultyClass } from "./utils";
 import { useNodeContentSizeSync } from "../../canvas/hooks/useNodeContentSizeSync";
+import { LEETCODE_SERVICE_URL } from "../../shared/config/env";
 
-const LEETCODE_SERVICE = "http://localhost:8081";
 const MIN_NODE_WIDTH = 100;
 const MIN_NODE_HEIGHT = 80;
 
@@ -56,7 +56,7 @@ export function ProblemNodeRenderer({
     }
     setLoading(true);
     try {
-      const res = await fetch(`${LEETCODE_SERVICE}/api/problems/slug/${slug}`);
+      const res = await fetch(`${LEETCODE_SERVICE_URL}/api/problems/slug/${slug}`);
       if (!res.ok) {
         onUpdate(node.id, {
           data: { status: "error", message: "Problem not found." },

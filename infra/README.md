@@ -4,6 +4,8 @@ This directory contains shared local infrastructure used by backend services.
 
 ## Compose
 - `compose/docker-compose.dev.yml`: local infra stack (Postgres, RabbitMQ, Debezium)
+- `compose/docker-compose.hobby.yml`: single-host full backend stack
+  (collab + leetcode + submissions + worker + Postgres + RabbitMQ + Debezium)
 
 ## Debezium
 - `debezium/conf/application.properties`: Debezium Server config

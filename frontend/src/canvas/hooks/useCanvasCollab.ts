@@ -7,6 +7,7 @@ import type {
   CanvasOutboundEvent,
 } from "../../shared/events";
 import { screenToWorld } from "../utils/coordinates";
+import { COLLAB_WS_URL } from "../../shared/config/env";
 
 const CURSOR_MOVE_UPDATE_INTERVAL = 10;
 
@@ -46,7 +47,7 @@ export function useCanvasCollab(
   const handlersRef = useRef(handlers);
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8080/ws");
+    const ws = new WebSocket(COLLAB_WS_URL);
 
     ws.onopen = () => {
       // Reset local collab state when a fresh socket session is established.
