@@ -11,13 +11,6 @@ interface Props {
   onTextEdits: (nodeId: string, edits: TextEdit[]) => void;
 }
 
-/**
- * Computes one minimal replacement edit from previous -> next string.
- *
- * Why one edit?
- * Textarea onChange provides full value snapshots, not granular operations.
- * We derive a prefix/suffix diff so CRDT still receives position-based edits.
- */
 function diffToSingleEdit(prev: string, next: string): TextEdit[] {
   if (prev === next) return [];
 
@@ -49,25 +42,40 @@ export function NoteNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
 
   return (
     <div
-      className="absolute cursor-grab select-none border border-(--lc-border-default) bg-(--lc-surface-1) p-3 active:cursor-grabbing"
+      className="w2k-window absolute cursor-grab select-none active:cursor-grabbing"
       style={{
         left: node.x,
         top: node.y,
         width: node.width,
         height: node.height,
+        display: "flex",
+        flexDirection: "column",
       }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
-      <div className="mb-2 text-xs font-semibold text-(--lc-text-secondary)">Note</div>
+      {/* Win2000 title bar */}
+      <div className="w2k-titlebar" style={{ flexShrink: 0 }}>
+        <span style={{ fontSize: 10 }}>📝</span>
+        <span>Note</span>
+      </div>
+      {/* Content */}
       <div
-        className="h-full"
-        style={{ height: node.height - 50 }} // subtract header + padding
+        style={{ flex: 1, padding: 4, minHeight: 0 }}
         onPointerDown={(e) => e.stopPropagation()}
       >
         <textarea
           placeholder="Write a note..."
           value={node.data.content}
-          className="h-full w-full resize-none border border-(--lc-border-default) bg-(--lc-surface-2) p-2 text-sm text-(--lc-text-primary) outline-none placeholder:text-(--lc-text-muted)"
+          className="w2k-input"
+          style={{
+            width: "100%",
+            height: "100%",
+            resize: "none",
+            fontSize: 11,
+            fontFamily: '"MS Sans Serif", "Microsoft Sans Serif", Tahoma, Arial, sans-serif',
+            background: "#ffffff",
+            boxSizing: "border-box",
+          }}
           onChange={(e) => {
             const next = e.target.value;
             const edits = diffToSingleEdit(lastTextRef.current, next);

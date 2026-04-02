@@ -306,31 +306,43 @@ export function CodeNodeRenderer({
 
   return (
     <div
-      className="absolute cursor-grab select-none border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
-      style={{ left: node.x, top: node.y, width: node.width }}
+      className="w2k-window absolute cursor-grab select-none active:cursor-grabbing"
+      style={{ left: node.x, top: node.y, width: node.width, display: "flex", flexDirection: "column" }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
-      <div className="flex items-center justify-between border-b border-(--lc-border-default) p-2">
-        <span className="text-xs font-semibold text-(--lc-text-secondary)">Code</span>
-        <div className="flex items-center gap-2">
+      {/* Win2000 title bar */}
+      <div className="w2k-titlebar" style={{ justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: 10 }}>💻</span>
+          <span>Code Editor</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {canRun && (
             <button
               type="button"
-              className="rounded border border-(--lc-border-default) bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-text-primary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) disabled:opacity-50"
+              className="w2k-btn"
+              style={{ fontSize: 10, padding: "1px 6px", minHeight: 16 }}
               onPointerDown={(e) => e.stopPropagation()}
               onClick={handleRunClick}
               disabled={isRunning}
             >
-              {isRunning ? "Running…" : "Run"}
+              {isRunning ? "Running..." : "▶ Run"}
             </button>
           )}
-          <span className="text-[10px] text-(--lc-text-muted)">{node.data.language}</span>
+          <span style={{ fontSize: 10, fontWeight: "normal", color: "#aaddff" }}>{node.data.language}</span>
         </div>
       </div>
+      {/* Editor body */}
       <div
         ref={containerRef}
-        className="overflow-auto text-sm"
-        style={{ height: node.height - 40 }}
+        className="w2k-sunken"
+        style={{
+          height: node.height - 26,
+          overflow: "auto",
+          fontSize: 12,
+          background: "#ffffff",
+          margin: 3,
+        }}
         onPointerDown={(e) => e.stopPropagation()}
       />
     </div>

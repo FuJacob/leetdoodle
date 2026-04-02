@@ -97,147 +97,190 @@ export function ProblemNodeRenderer({
     }
   }
 
-  const base =
-    "absolute select-none border border-(--lc-border-default) bg-(--lc-surface-1) p-3";
-
   const handleMouseEnter = () => setIsHovering(true);
   const handleMouseLeave = () => setIsHovering(false);
   const handleAddNode = () => setShowAddNodePanel(true);
   const handleCloseAddNodePanel = () => setShowAddNodePanel(false);
-  // ── empty / error: URL input ─────────────────────────────────────────────
 
   if (node.data.status === "empty" || node.data.status === "error") {
     const error = node.data.status === "error" ? node.data.message : null;
     return (
       <div
-        className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
+        className="w2k-window absolute cursor-grab select-none active:cursor-grabbing"
         style={{
           left: node.x,
           top: node.y,
           width: node.width,
           height: node.height,
+          display: "flex",
+          flexDirection: "column",
         }}
         onPointerDown={(e) => onPointerDown(e, node)}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="mb-2 text-xs font-semibold text-(--lc-text-secondary)">Problem</div>
-        {/* Stop pointer-down so typing in the input doesn't start a drag */}
+        <div className="w2k-titlebar" style={{ flexShrink: 0 }}>
+          <span style={{ fontSize: 10 }}>🧩</span>
+          <span>Problem</span>
+        </div>
         <div
-          className="flex-1 min-h-0"
+          style={{ padding: 6, flex: 1, minHeight: 0 }}
           onPointerDown={(e) => e.stopPropagation()}
         >
           <input
             type="text"
-            className="w-full border border-(--lc-border-strong) bg-(--lc-surface-2) px-2 py-1 text-xs text-(--lc-text-primary) outline-none placeholder:text-(--lc-text-muted)"
+            className="w2k-input"
+            style={{ width: "100%", fontSize: 11, boxSizing: "border-box" }}
             placeholder="https://leetcode.com/problems/two-sum/"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           />
           <button
-            className="mt-2 w-full border border-(--lc-border-default) bg-(--lc-surface-3) py-1 text-xs text-(--lc-text-primary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) disabled:opacity-40"
+            className="w2k-btn"
+            style={{ marginTop: 6, width: "100%" }}
             onClick={handleCreate}
             disabled={loading || url.trim() === ""}
           >
-            {loading ? "Loading…" : "Create"}
+            {loading ? "Loading..." : "Open"}
           </button>
-          {error && <div className="mt-1 text-xs text-(--lc-danger)">{error}</div>}
+          {error && (
+            <div style={{ marginTop: 4, fontSize: 10, color: "var(--w2k-red)", fontFamily: '"MS Sans Serif", Tahoma, Arial, sans-serif' }}>
+              {error}
+            </div>
+          )}
         </div>
       </div>
     );
   }
 
-  // ── loaded: problem details ───────────────────────────────────────────────
-
-  const { title, difficulty, content, tags, likes, dislikes, stats } =
-    node.data;
+  const { title, difficulty, content, tags, likes, dislikes, stats } = node.data;
   const parsedStats = parseStats(stats);
+
+  const diffColor =
+    difficulty === "Easy" ? "var(--w2k-green)" :
+    difficulty === "Hard" ? "var(--w2k-red)" :
+    "var(--w2k-yellow)";
 
   return (
     <div
       ref={loadedRootRef}
-      className={`${base} cursor-grab active:cursor-grabbing`}
-      style={{ left: node.x, top: node.y, width: node.width }}
+      className="w2k-window absolute cursor-grab select-none active:cursor-grabbing"
+      style={{ left: node.x, top: node.y, width: node.width, display: "flex", flexDirection: "column" }}
       onPointerDown={(e) => onPointerDown(e, node)}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <div className="flex items-baseline justify-between mb-1">
-        <div className="text-sm font-medium text-(--lc-text-primary)">{title}</div>
-        <div className={`text-xs ml-2 shrink-0 ${difficultyClass(difficulty)}`}>
-          {difficulty}
+      {/* Title bar */}
+      <div className="w2k-titlebar" style={{ flexShrink: 0, justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontSize: 10 }}>🧩</span>
+          <span>{title}</span>
         </div>
+        <span style={{ fontSize: 10, fontWeight: "normal", color: "#aaddff" }}>{difficulty}</span>
       </div>
 
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
+      <div style={{ padding: "4px 6px 6px 6px", background: "var(--w2k-btn-face)" }}>
+        {/* Difficulty badge */}
+        <div style={{ marginBottom: 4, display: "flex", gap: 4, flexWrap: "wrap" }}>
+          <span style={{
+            display: "inline-block",
+            padding: "0 6px",
+            fontSize: 10,
+            fontFamily: '"MS Sans Serif", Tahoma, Arial, sans-serif',
+            color: "var(--w2k-white)",
+            background: diffColor,
+          }}>
+            {difficulty}
+          </span>
           {tags.map((t) => (
             <span
               key={t.id}
-              className="border border-(--lc-border-default) px-1 text-[10px] text-(--lc-text-secondary)"
+              className="w2k-statusbar"
+              style={{ fontSize: 10, padding: "0 4px" }}
             >
               {t.name}
             </span>
           ))}
         </div>
-      )}
 
-      {/* Render HTML content directly — safe since it's from our own DB */}
-      <div
-        className="mb-2 min-h-0 flex-1 overflow-y-auto text-xs leading-relaxed text-(--lc-text-secondary) [&_a]:text-(--lc-link) [&_code]:bg-(--lc-surface-2) [&_code]:px-1 [&_code]:text-(--lc-text-secondary) [&_ol]:list-decimal [&_ol]:pl-4 [&_pre]:overflow-x-auto [&_pre]:bg-(--lc-surface-2) [&_pre]:p-2 [&_strong]:text-(--lc-text-primary) [&_ul]:list-disc [&_ul]:pl-4"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
+        {/* Content — rendered HTML from LeetCode */}
+        <div
+          className="w2k-sunken"
+          style={{
+            padding: "4px 6px",
+            maxHeight: 280,
+            overflowY: "auto",
+            background: "#ffffff",
+            fontSize: 11,
+            lineHeight: 1.5,
+            fontFamily: '"MS Sans Serif", Tahoma, Arial, sans-serif',
+            color: "var(--w2k-black)",
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          // Safe — content from our own DB
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
 
-      <div className="flex gap-3 text-[10px] text-(--lc-text-muted)">
-        <span>▲ {likes}</span>
-        <span>▼ {dislikes}</span>
-        {parsedStats && <span>✓ {parsedStats.acRate}</span>}
+        {/* Stats row */}
+        <div style={{ marginTop: 4, display: "flex", gap: 8, fontSize: 10, fontFamily: '"MS Sans Serif", Tahoma, Arial, sans-serif', color: "var(--w2k-gray-text)" }}>
+          <span>▲ {likes}</span>
+          <span>▼ {dislikes}</span>
+          {parsedStats && <span>✓ {parsedStats.acRate}</span>}
+        </div>
       </div>
 
-      {/* Extends hover area below the node so the button doesn't flicker */}
+      {/* Hover add-node area */}
       <div
         className="absolute bottom-2 left-0 right-0 translate-y-full"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {/* Transparent bridge so mouse doesn't leave the hover zone */}
         <div className="h-1" />
         {isHovering && !showAddNodePanel && (
-          <div className="flex justify-center">
-            <button
-              className="flex items-center gap-1 border border-(--lc-border-default) bg-(--lc-surface-1) px-3 py-1 text-[10px] text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
-              onClick={handleAddNode}
-            >
-              <IconPlus size={12} stroke={2} />
-              <span>Add node</span>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <button className="w2k-btn" style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 3 }} onClick={handleAddNode}>
+              <IconPlus size={11} stroke={2} />
+              Add node
             </button>
           </div>
         )}
 
         {showAddNodePanel && (
           <div
-            className="relative mt-2 border border-(--lc-border-strong) bg-(--lc-surface-2) p-2 text-xs"
+            className="w2k-window"
+            style={{ marginTop: 4, padding: 6, position: "relative" }}
             onPointerDown={(e) => e.stopPropagation()}
           >
             <button
               onClick={handleCloseAddNodePanel}
-              className="absolute right-1 top-1 text-(--lc-text-muted) transition hover:text-(--lc-text-secondary)"
+              style={{
+                position: "absolute",
+                top: 2,
+                right: 2,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                color: "var(--w2k-gray-text)",
+                fontSize: 11,
+                lineHeight: 1,
+                padding: 2,
+              }}
               aria-label="Close add node panel"
             >
-              <IconX size={12} stroke={2} />
+              <IconX size={11} stroke={2} />
             </button>
-            <div className="flex gap-2 pr-4">
-              {NODE_CONTROL_OPTIONS.map(({ type, label, Icon }) => (
+            <div style={{ display: "flex", gap: 4, paddingRight: 16 }}>
+              {NODE_CONTROL_OPTIONS.map(({ type, label }) => (
                 <button
                   key={type}
                   onClick={() => {
                     onSpawn(type, node.id);
                     handleCloseAddNodePanel();
                   }}
-                  className="flex items-center gap-1 border border-(--lc-border-default) bg-(--lc-surface-1) px-2 py-1 text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+                  className="w2k-btn"
+                  style={{ fontSize: 10 }}
                 >
-                  <Icon size={13} stroke={1.8} />
-                  <span>{label}</span>
+                  {label}
                 </button>
               ))}
             </div>

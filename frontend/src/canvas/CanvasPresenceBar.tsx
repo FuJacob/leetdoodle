@@ -7,17 +7,52 @@ interface CanvasPresenceBarProps {
 
 export function CanvasPresenceBar({ users, localUserId }: CanvasPresenceBarProps) {
   return (
-    <div className="flex items-center gap-5 border border-(--lc-border-default) bg-(--lc-surface-1) p-2">
-      {users.map((user) => (
-        <div key={user.id} className="flex items-center gap-2">
+    <div
+      className="w2k-window"
+      style={{
+        minWidth: 110,
+        background: "var(--w2k-btn-face)",
+      }}
+    >
+      <div className="w2k-titlebar">
+        <span style={{ fontSize: 10 }}>👥</span>
+        <span>Users</span>
+      </div>
+      <div style={{ padding: "4px 6px", display: "flex", flexDirection: "column", gap: 2 }}>
+        {users.length === 0 && (
+          <span style={{ fontSize: 10, color: "var(--w2k-gray-text)", fontFamily: '"MS Sans Serif", Tahoma, Arial, sans-serif' }}>
+            (no users)
+          </span>
+        )}
+        {users.map((user) => (
           <div
-            title={user.id === localUserId ? "You" : user.id}
-            className={`h-3 w-3 rounded-full ${user.id === localUserId ? "ring-1 ring-(--lc-border-strong)" : ""}`}
-            style={{ backgroundColor: user.color }}
-          />
-          <p className="text-(--lc-text-primary)">{user.id.slice(0, 5)}</p>
-        </div>
-      ))}
+            key={user.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              fontFamily: '"MS Sans Serif", Tahoma, Arial, sans-serif',
+              fontSize: 11,
+              background: user.id === localUserId ? "var(--w2k-selected)" : "transparent",
+              color: user.id === localUserId ? "var(--w2k-white)" : "var(--w2k-black)",
+              padding: "1px 3px",
+            }}
+          >
+            <div
+              title={user.id === localUserId ? "You" : user.id}
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: "50%",
+                backgroundColor: user.color,
+                border: "1px solid var(--w2k-btn-dkshadow)",
+                flexShrink: 0,
+              }}
+            />
+            <span>{user.id === localUserId ? "You" : user.id.slice(0, 5)}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

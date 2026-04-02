@@ -353,15 +353,19 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       ref={viewportRef}
       className="fixed inset-0 overflow-hidden bg-(--lc-canvas-bg)"
       style={{
-        backgroundImage: `radial-gradient(circle, var(--lc-canvas-dot) ${gridDotRadiusPx}px, transparent ${gridDotRadiusPx}px)`,
-        backgroundSize: `${gridSpacingPx}px ${gridSpacingPx}px`,
+        backgroundImage: `
+          linear-gradient(rgba(0,102,102,0.4) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,102,102,0.4) 1px, transparent 1px),
+          radial-gradient(circle, var(--lc-canvas-dot) ${gridDotRadiusPx}px, transparent ${gridDotRadiusPx}px)
+        `,
+        backgroundSize: `${gridSpacingPx * 4}px ${gridSpacingPx * 4}px, ${gridSpacingPx * 4}px ${gridSpacingPx * 4}px, ${gridSpacingPx}px ${gridSpacingPx}px`,
         backgroundPosition: `${transform.x}px ${transform.y}px`,
       }}
       onPointerDown={activeToolController.onCanvasPointerDown}
       onPointerMove={activeToolController.onCanvasPointerMove}
       onPointerUp={activeToolController.onCanvasPointerUp}
     >
-      <div className="absolute right-4 top-4 z-60 flex items-start gap-3">
+      <div className="absolute right-3 top-3 z-60 flex items-start gap-2">
         <CanvasPresenceBar users={users} localUserId={userId} />
         <ThemePanel />
         <ToolPanel

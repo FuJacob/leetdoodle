@@ -41,7 +41,11 @@ function CornerHandle({
     top: y - outerSize / 2,
     width: outerSize,
     height: outerSize,
-    backgroundColor: LOCAL_SELECTION_COLOR,
+    backgroundColor: "#d4d0c8",
+    borderTop: "2px solid #ffffff",
+    borderLeft: "2px solid #ffffff",
+    borderBottom: "2px solid #404040",
+    borderRight: "2px solid #404040",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -60,7 +64,7 @@ function CornerHandle({
         style={{
           width: innerSize,
           height: innerSize,
-          backgroundColor: "#ffffff",
+          backgroundColor: "#000080",
         }}
       />
     </div>
@@ -81,7 +85,8 @@ function ActionIconButton({
       type="button"
       title={title}
       aria-label={title}
-      className="flex h-8 w-8 items-center justify-center border border-(--lc-border-strong) bg-(--lc-surface-1) text-(--lc-text-secondary) shadow-sm transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+      className="w2k-btn"
+      style={{ width: 22, height: 22, minHeight: 22, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}
       onPointerDown={(e) => {
         e.stopPropagation();
       }}
@@ -241,7 +246,8 @@ export function SelectionOverlay({
               top: selectedNode.y * transform.zoom + transform.y,
               width: selectedNode.width * transform.zoom,
               height: selectedNode.height * transform.zoom,
-              border: `2px solid ${localSelectionColor}`,
+              border: `2px solid #000080`,
+              outline: `1px dotted #ffffff`,
             }}
           />
 
@@ -272,8 +278,12 @@ export function SelectionOverlay({
             />
 
             <div
-              className="absolute flex flex-col gap-2"
+              className="w2k-window absolute"
               style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                padding: 3,
                 left:
                   (selectedNode.x + selectedNode.width) * transform.zoom +
                   transform.x +

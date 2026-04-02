@@ -1,117 +1,296 @@
 @import "tailwindcss";
 
+/* ─── Windows 2000 / Classic Windows Design System ─────────────────────── */
+
 :root {
-  /* Primitive tokens */
-  --lc-neutral-0: #fffdf8;
-  --lc-neutral-50: #faf5ec;
-  --lc-neutral-100: #f5efe4;
-  --lc-neutral-200: #e9dece;
-  --lc-neutral-300: #dbcdb9;
-  --lc-neutral-400: #c8b59b;
-  --lc-neutral-500: #a89276;
-  --lc-neutral-600: #88745d;
-  --lc-neutral-700: #6c5a48;
-  --lc-neutral-800: #504235;
-  --lc-neutral-900: #362d24;
+  /* Win2000 Primitive Palette */
+  --w2k-silver:       #c0c0c0;
+  --w2k-silver-light: #d4d0c8;
+  --w2k-silver-dark:  #a0a0a0;
+  --w2k-white:        #ffffff;
+  --w2k-black:        #000000;
+  --w2k-navy:         #000080;
+  --w2k-navy-active:  #0000aa;
+  --w2k-teal:         #008080;
+  --w2k-teal-light:   #00b4b4;
+  --w2k-blue:         #000080;
+  --w2k-btn-face:     #d4d0c8;
+  --w2k-btn-shadow:   #808080;
+  --w2k-btn-hilight:  #ffffff;
+  --w2k-btn-dkshadow: #404040;
+  --w2k-inset-bg:     #ffffff;
+  --w2k-selected:     #000080;
+  --w2k-selected-txt: #ffffff;
+  --w2k-tooltip-bg:   #ffffe1;
+  --w2k-tooltip-txt:  #000000;
+  --w2k-gray-text:    #808080;
+  --w2k-red:          #800000;
+  --w2k-green:        #008000;
+  --w2k-yellow:       #808000;
 
-  --lc-accent-500: #3a7cf2;
-  --lc-accent-600: #2f6de0;
-  --lc-success-500: #16a34a;
-  --lc-warning-500: #ca8a04;
-  --lc-danger-500: #dc2626;
+  /* Semantic tokens mapped to Win2000 colors */
+  --lc-canvas-bg: var(--w2k-teal);
+  --lc-canvas-dot: #006666;
 
-  /* Semantic tokens */
-  --lc-canvas-bg: var(--lc-neutral-50);
-  --lc-canvas-dot: var(--lc-neutral-300);
+  --lc-surface-1: var(--w2k-btn-face);
+  --lc-surface-2: var(--w2k-silver-light);
+  --lc-surface-3: var(--w2k-silver);
 
-  --lc-surface-1: var(--lc-neutral-0);
-  --lc-surface-2: var(--lc-neutral-100);
-  --lc-surface-3: var(--lc-neutral-200);
+  --lc-text-primary:   var(--w2k-black);
+  --lc-text-secondary: #404040;
+  --lc-text-muted:     var(--w2k-gray-text);
+  --lc-text-inverse:   var(--w2k-white);
 
-  --lc-text-primary: var(--lc-neutral-900);
-  --lc-text-secondary: var(--lc-neutral-700);
-  --lc-text-muted: var(--lc-neutral-500);
-  --lc-text-inverse: #ffffff;
+  --lc-border-default: var(--w2k-btn-shadow);
+  --lc-border-strong:  var(--w2k-btn-dkshadow);
+  --lc-border-focus:   var(--w2k-navy);
 
-  --lc-border-default: var(--lc-neutral-300);
-  --lc-border-strong: var(--lc-neutral-400);
-  --lc-border-focus: var(--lc-accent-500);
+  --lc-accent:       var(--w2k-navy);
+  --lc-accent-hover: var(--w2k-navy-active);
+  --lc-link:         var(--w2k-navy);
 
-  --lc-accent: var(--lc-accent-500);
-  --lc-accent-hover: var(--lc-accent-600);
-  --lc-link: var(--lc-accent-500);
+  --lc-success:       var(--w2k-green);
+  --lc-warning:       var(--w2k-yellow);
+  --lc-danger:        var(--w2k-red);
+  --lc-danger-bg-soft: rgba(128, 0, 0, 0.12);
 
-  --lc-success: var(--lc-success-500);
-  --lc-warning: var(--lc-warning-500);
-  --lc-danger: var(--lc-danger-500);
-  --lc-danger-bg-soft: rgba(220, 38, 38, 0.12);
+  --lc-selection-local:           var(--w2k-selected);
+  --lc-selection-remote-fallback: var(--w2k-gray-text);
 
-  --lc-selection-local: var(--lc-accent-500);
-  --lc-selection-remote-fallback: var(--lc-neutral-500);
+  --lc-editor-bg:          var(--w2k-inset-bg);
+  --lc-editor-gutter:      var(--w2k-silver-light);
+  --lc-editor-active-line: #e8e4d8;
+  --lc-editor-caret:       var(--w2k-black);
 
-  --lc-editor-bg: var(--lc-surface-2);
-  --lc-editor-gutter: var(--lc-surface-2);
-  --lc-editor-active-line: var(--lc-surface-3);
-  --lc-editor-caret: var(--lc-text-primary);
+  --lc-draw-stroke: var(--w2k-black);
 
-  --lc-draw-stroke: var(--lc-text-primary);
+  /* Titlebar gradient — classic Win2000 blue gradient */
+  --w2k-titlebar-from: #000080;
+  --w2k-titlebar-to:   #1084d0;
 }
 
+/* ── Win2000 raised 3D border (outset) ──────────────────────────────────── */
+.w2k-raised {
+  border-top:    2px solid var(--w2k-btn-hilight);
+  border-left:   2px solid var(--w2k-btn-hilight);
+  border-bottom: 2px solid var(--w2k-btn-dkshadow);
+  border-right:  2px solid var(--w2k-btn-dkshadow);
+  box-shadow:
+    inset 1px 1px 0 var(--w2k-silver-light),
+    inset -1px -1px 0 var(--w2k-btn-shadow);
+}
+
+/* ── Win2000 sunken 3D border (inset) ───────────────────────────────────── */
+.w2k-sunken {
+  border-top:    2px solid var(--w2k-btn-dkshadow);
+  border-left:   2px solid var(--w2k-btn-dkshadow);
+  border-bottom: 2px solid var(--w2k-btn-hilight);
+  border-right:  2px solid var(--w2k-btn-hilight);
+  box-shadow:
+    inset 1px 1px 0 var(--w2k-btn-shadow),
+    inset -1px -1px 0 var(--w2k-silver-light);
+}
+
+/* ── Win2000 button ─────────────────────────────────────────────────────── */
+.w2k-btn {
+  background: var(--w2k-btn-face);
+  color: var(--w2k-black);
+  font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Geneva, Arial, sans-serif;
+  font-size: 11px;
+  padding: 2px 8px;
+  min-height: 22px;
+  cursor: pointer;
+  user-select: none;
+  border-top:    2px solid var(--w2k-btn-hilight);
+  border-left:   2px solid var(--w2k-btn-hilight);
+  border-bottom: 2px solid var(--w2k-btn-dkshadow);
+  border-right:  2px solid var(--w2k-btn-dkshadow);
+  box-shadow:
+    inset 1px 1px 0 var(--w2k-silver-light),
+    inset -1px -1px 0 var(--w2k-btn-shadow);
+}
+.w2k-btn:active {
+  border-top:    2px solid var(--w2k-btn-dkshadow);
+  border-left:   2px solid var(--w2k-btn-dkshadow);
+  border-bottom: 2px solid var(--w2k-btn-hilight);
+  border-right:  2px solid var(--w2k-btn-hilight);
+  box-shadow:
+    inset 1px 1px 0 var(--w2k-btn-shadow),
+    inset -1px -1px 0 var(--w2k-silver-light);
+  padding: 3px 7px 1px 9px;
+}
+.w2k-btn:focus {
+  outline: 1px dotted var(--w2k-black);
+  outline-offset: -4px;
+}
+.w2k-btn:disabled {
+  color: var(--w2k-btn-shadow);
+  text-shadow: 1px 1px 0 var(--w2k-btn-hilight);
+  cursor: default;
+}
+.w2k-btn.active {
+  border-top:    2px solid var(--w2k-btn-dkshadow);
+  border-left:   2px solid var(--w2k-btn-dkshadow);
+  border-bottom: 2px solid var(--w2k-btn-hilight);
+  border-right:  2px solid var(--w2k-btn-hilight);
+  background: var(--w2k-silver-light);
+}
+
+/* ── Win2000 titlebar ───────────────────────────────────────────────────── */
+.w2k-titlebar {
+  background: linear-gradient(to right, var(--w2k-titlebar-from), var(--w2k-titlebar-to));
+  color: var(--w2k-white);
+  font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Geneva, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+  min-height: 18px;
+}
+
+/* ── Win2000 window frame ───────────────────────────────────────────────── */
+.w2k-window {
+  background: var(--w2k-btn-face);
+  font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Geneva, Arial, sans-serif;
+  font-size: 11px;
+  border-top:    2px solid var(--w2k-btn-hilight);
+  border-left:   2px solid var(--w2k-btn-hilight);
+  border-bottom: 2px solid var(--w2k-btn-dkshadow);
+  border-right:  2px solid var(--w2k-btn-dkshadow);
+  box-shadow:
+    inset 1px 1px 0 var(--w2k-silver-light),
+    inset -1px -1px 0 var(--w2k-btn-shadow);
+}
+
+/* ── Win2000 input field ────────────────────────────────────────────────── */
+.w2k-input {
+  background: var(--w2k-inset-bg);
+  color: var(--w2k-black);
+  font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Geneva, Arial, sans-serif;
+  font-size: 11px;
+  border-top:    2px solid var(--w2k-btn-dkshadow);
+  border-left:   2px solid var(--w2k-btn-dkshadow);
+  border-bottom: 2px solid var(--w2k-btn-hilight);
+  border-right:  2px solid var(--w2k-btn-hilight);
+  padding: 2px 4px;
+  outline: none;
+}
+.w2k-input:focus {
+  outline: none;
+}
+
+/* ── Win2000 separator ──────────────────────────────────────────────────── */
+.w2k-separator {
+  border: none;
+  border-top: 1px solid var(--w2k-btn-shadow);
+  border-bottom: 1px solid var(--w2k-btn-hilight);
+  margin: 4px 0;
+}
+
+/* ── Win2000 taskbar status area ────────────────────────────────────────── */
+.w2k-statusbar {
+  background: var(--w2k-btn-face);
+  font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Geneva, Arial, sans-serif;
+  font-size: 11px;
+  border-top:    2px solid var(--w2k-btn-dkshadow);
+  border-left:   2px solid var(--w2k-btn-dkshadow);
+  border-bottom: 2px solid var(--w2k-btn-hilight);
+  border-right:  2px solid var(--w2k-btn-hilight);
+  padding: 2px 4px;
+}
+
+/* ── Win2000 group box label ────────────────────────────────────────────── */
+.w2k-label {
+  font-family: "MS Sans Serif", "Microsoft Sans Serif", Tahoma, Geneva, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--w2k-black);
+}
+
+/* ── Win2000 selected item ──────────────────────────────────────────────── */
+.w2k-selected-item {
+  background: var(--w2k-selected) !important;
+  color: var(--w2k-selected-txt) !important;
+}
+
+/* ── Range input Win2000 style ──────────────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--w2k-btn-face);
+  border-top:    1px solid var(--w2k-btn-dkshadow);
+  border-left:   1px solid var(--w2k-btn-dkshadow);
+  border-bottom: 1px solid var(--w2k-btn-hilight);
+  border-right:  1px solid var(--w2k-btn-hilight);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 20px;
+  margin-top: -8px;
+  background: var(--w2k-btn-face);
+  border-top:    2px solid var(--w2k-btn-hilight);
+  border-left:   2px solid var(--w2k-btn-hilight);
+  border-bottom: 2px solid var(--w2k-btn-dkshadow);
+  border-right:  2px solid var(--w2k-btn-dkshadow);
+}
+
+/* ── Win2000 "High Contrast" dark variant ──────────────────────────────── */
 [data-theme="dark"] {
-  /* Primitive tokens */
-  --lc-neutral-0: #17120f;
-  --lc-neutral-50: #201915;
-  --lc-neutral-100: #2a221d;
-  --lc-neutral-200: #352c25;
-  --lc-neutral-300: #463930;
-  --lc-neutral-400: #5b4b3f;
-  --lc-neutral-500: #7a6857;
-  --lc-neutral-600: #a89480;
-  --lc-neutral-700: #cbb9a6;
-  --lc-neutral-800: #e3d5c7;
-  --lc-neutral-900: #f3e9dc;
+  --w2k-btn-face:     #1a1a1a;
+  --w2k-silver:       #3a3a3a;
+  --w2k-silver-light: #2a2a2a;
+  --w2k-silver-dark:  #111111;
+  --w2k-btn-hilight:  #555555;
+  --w2k-btn-shadow:   #000000;
+  --w2k-btn-dkshadow: #000000;
+  --w2k-inset-bg:     #0a0a0a;
+  --w2k-black:        #c8c8c8;
+  --w2k-white:        #ffffff;
+  --w2k-gray-text:    #888888;
+  --w2k-navy:         #4488ff;
+  --w2k-navy-active:  #6699ff;
+  --w2k-selected:     #3355cc;
+  --w2k-green:        #33cc33;
+  --w2k-red:          #cc3333;
+  --w2k-yellow:       #ccaa00;
+  --w2k-titlebar-from: #003366;
+  --w2k-titlebar-to:   #006699;
 
-  --lc-accent-500: #8ab4ff;
-  --lc-accent-600: #b3d0ff;
-  --lc-success-500: #4ade80;
-  --lc-warning-500: #facc15;
-  --lc-danger-500: #f87171;
-
-  /* Semantic tokens */
-  --lc-canvas-bg: var(--lc-neutral-0);
-  --lc-canvas-dot: var(--lc-neutral-300);
-
-  --lc-surface-1: var(--lc-neutral-100);
-  --lc-surface-2: var(--lc-neutral-200);
-  --lc-surface-3: var(--lc-neutral-300);
-
-  --lc-text-primary: var(--lc-neutral-800);
-  --lc-text-secondary: var(--lc-neutral-700);
-  --lc-text-muted: var(--lc-neutral-500);
-  --lc-text-inverse: #ffffff;
-
-  --lc-border-default: var(--lc-neutral-300);
-  --lc-border-strong: var(--lc-neutral-400);
-  --lc-border-focus: var(--lc-accent-500);
-
-  --lc-accent: var(--lc-accent-500);
-  --lc-accent-hover: var(--lc-accent-600);
-  --lc-link: var(--lc-accent-500);
-
-  --lc-success: var(--lc-success-500);
-  --lc-warning: var(--lc-warning-500);
-  --lc-danger: var(--lc-danger-500);
-  --lc-danger-bg-soft: rgba(248, 113, 113, 0.18);
-
-  --lc-selection-local: var(--lc-accent-500);
-  --lc-selection-remote-fallback: var(--lc-neutral-500);
-
-  --lc-editor-bg: var(--lc-surface-1);
-  --lc-editor-gutter: var(--lc-surface-1);
-  --lc-editor-active-line: var(--lc-surface-2);
-  --lc-editor-caret: var(--lc-text-primary);
-
-  --lc-draw-stroke: var(--lc-text-primary);
+  --lc-canvas-bg: #002020;
+  --lc-canvas-dot: #004444;
+  --lc-surface-1: var(--w2k-btn-face);
+  --lc-surface-2: var(--w2k-silver-light);
+  --lc-surface-3: var(--w2k-silver);
+  --lc-text-primary: var(--w2k-black);
+  --lc-text-secondary: #aaaaaa;
+  --lc-text-muted: var(--w2k-gray-text);
+  --lc-text-inverse: var(--w2k-white);
+  --lc-border-default: var(--w2k-btn-shadow);
+  --lc-border-strong: var(--w2k-btn-dkshadow);
+  --lc-border-focus: var(--w2k-navy);
+  --lc-accent: var(--w2k-navy);
+  --lc-accent-hover: var(--w2k-navy-active);
+  --lc-link: var(--w2k-navy);
+  --lc-success: var(--w2k-green);
+  --lc-warning: var(--w2k-yellow);
+  --lc-danger: var(--w2k-red);
+  --lc-danger-bg-soft: rgba(204, 51, 51, 0.18);
+  --lc-selection-local: var(--w2k-navy);
+  --lc-selection-remote-fallback: var(--w2k-gray-text);
+  --lc-editor-bg: var(--w2k-inset-bg);
+  --lc-editor-gutter: var(--w2k-silver-light);
+  --lc-editor-active-line: #1a1a2a;
+  --lc-editor-caret: var(--w2k-black);
+  --lc-draw-stroke: var(--w2k-black);
 }
 
 /* Tailwind's preflight handles box-sizing and margin resets. */
