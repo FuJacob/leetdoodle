@@ -2,69 +2,85 @@ import { useCallback, useRef } from "react";
 import type { Transform } from "../types";
 import type { CanvasNode } from "../../shared/nodes";
 
+interface DragNodeSnapshot {
+  id: string;
+  startX: number;
+  startY: number;
+}
+
 interface DragState {
   active: boolean;
   startScreenX: number;
   startScreenY: number;
-  startWorldX: number;
-  startWorldY: number;
+  nodes: DragNodeSnapshot[];
 }
 
-type MoveNode = (id: string, x: number, y: number) => void;
+type MoveNodes = (moves: Array<{ id: string; x: number; y: number }>) => void;
 
 export function useNodeDrag(
   transformRef: React.RefObject<Transform>,
-  moveNode: MoveNode,
+  moveNodes: MoveNodes,
+  selectedNodeIds: Set<string>,
+  nodesRef: React.RefObject<CanvasNode[]>,
 ) {
   const dragRef = useRef<DragState>({
     active: false,
     startScreenX: 0,
     startScreenY: 0,
-    startWorldX: 0,
-    startWorldY: 0,
+    nodes: [],
   });
-  const draggingIdRef = useRef<string | null>(null);
 
-  // Called by NodeRenderer's onPointerDown.
+  // When a selected node is clicked, drag all selected nodes together.
+  // When an unselected node is clicked, the controller updates selection first,
+  // so we fall back to dragging just that one node.
   const onNodePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>, node: CanvasNode) => {
-      e.stopPropagation(); // prevent viewport pan from activating
-      // Do NOT call setPointerCapture here — move/up are handled at the viewport
-      // level which covers the full screen. Capturing on the node div would route
-      // events away from the viewport, defeating that design.
-      draggingIdRef.current = node.id;
+      e.stopPropagation();
+
+      const idsToMove = selectedNodeIds.has(node.id)
+        ? selectedNodeIds
+        : new Set([node.id]);
+
+      const snapshots: DragNodeSnapshot[] = [];
+      for (const n of nodesRef.current) {
+        if (idsToMove.has(n.id)) {
+          snapshots.push({ id: n.id, startX: n.x, startY: n.y });
+        }
+      }
+
       dragRef.current = {
         active: true,
         startScreenX: e.clientX,
         startScreenY: e.clientY,
-        startWorldX: node.x,
-        startWorldY: node.y,
+        nodes: snapshots,
       };
     },
-    [],
+    [selectedNodeIds, nodesRef],
   );
 
-  // Called by the viewport's onPointerMove (alongside pan handler).
-  // No-op when no node drag is active.
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!dragRef.current.active || !draggingIdRef.current) return;
+      const drag = dragRef.current;
+      if (!drag.active || drag.nodes.length === 0) return;
+
       const zoom = transformRef.current.zoom;
-      const dx = (e.clientX - dragRef.current.startScreenX) / zoom;
-      const dy = (e.clientY - dragRef.current.startScreenY) / zoom;
-      moveNode(
-        draggingIdRef.current,
-        dragRef.current.startWorldX + dx,
-        dragRef.current.startWorldY + dy,
+      const dx = (e.clientX - drag.startScreenX) / zoom;
+      const dy = (e.clientY - drag.startScreenY) / zoom;
+
+      moveNodes(
+        drag.nodes.map((n) => ({
+          id: n.id,
+          x: n.startX + dx,
+          y: n.startY + dy,
+        })),
       );
     },
-    [transformRef, moveNode],
+    [transformRef, moveNodes],
   );
 
-  // Called by the viewport's onPointerUp (alongside pan handler).
   const onPointerUp = useCallback(() => {
     dragRef.current.active = false;
-    draggingIdRef.current = null;
+    dragRef.current.nodes = [];
   }, []);
 
   return { onNodePointerDown, onPointerMove, onPointerUp };

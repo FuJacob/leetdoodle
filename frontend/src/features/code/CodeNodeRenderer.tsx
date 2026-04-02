@@ -171,9 +171,10 @@ export function CodeNodeRenderer({
           }
         }),
         EditorView.theme({
-          "&": { backgroundColor: editorBackground, color: editorText },
-          ".cm-content": { caretColor: editorCaret },
+          "&": { backgroundColor: editorBackground, color: editorText, height: "100%" },
+          ".cm-content": { caretColor: editorCaret, whiteSpace: "pre", minHeight: "100%" },
           ".cm-cursor": { borderLeftColor: editorCaret },
+          ".cm-scroller": { overflow: "auto" },
           ".cm-gutters": {
             backgroundColor: editorGutter,
             color: editorMuted,
@@ -306,8 +307,8 @@ export function CodeNodeRenderer({
 
   return (
     <div
-      className="absolute cursor-grab select-none border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
-      style={{ left: node.x, top: node.y, width: node.width }}
+      className="absolute flex cursor-grab select-none flex-col overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
+      style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
       <div className="flex items-center justify-between border-b border-(--lc-border-default) p-2">
@@ -327,12 +328,9 @@ export function CodeNodeRenderer({
           <span className="text-[10px] text-(--lc-text-muted)">{node.data.language}</span>
         </div>
       </div>
-      <div
-        ref={containerRef}
-        className="overflow-auto text-sm"
-        style={{ height: node.height - 40 }}
-        onPointerDown={(e) => e.stopPropagation()}
-      />
+      <div className="flex-1 min-h-0" onPointerDown={(e) => e.stopPropagation()}>
+        <div ref={containerRef} className="h-full overflow-auto text-sm" />
+      </div>
     </div>
   );
 }

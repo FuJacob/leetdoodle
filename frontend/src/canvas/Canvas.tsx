@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type CanvasNode,
   type Edge,
@@ -29,10 +29,12 @@ import { useDrawToolController } from "../features/draw/hooks/useDrawToolControl
 import { useActiveToolController } from "./tools/useActiveToolController";
 import type { CanvasTool } from "./tools/types";
 import type { LocalCursorMode } from "./types";
+import { useCanvasShortcutContainer } from "./shortcuts/useCanvasShortcutContainer";
 
 interface CanvasProps {
   canvasId: string;
   userId: string;
+  displayName: string;
 }
 
 function assertNever(x: never): never {
@@ -73,17 +75,26 @@ function cloneCanvasNode(node: CanvasNode, dx: number, dy: number): CanvasNode {
   } as CanvasNode;
 }
 
-export function Canvas({ canvasId, userId }: CanvasProps) {
+const EMPTY_SET = new Set<string>();
+
+export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
   const GRID_SPACING = 32;
   const GRID_DOT_RADIUS = 1.35;
   const viewportRef = useRef<HTMLDivElement>(null);
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [remoteSelections, setRemoteSelections] = useState<Map<string, string>>(
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(EMPTY_SET);
+  const [remoteSelections, setRemoteSelections] = useState<Map<string, Set<string>>>(
     new Map(),
   );
   const sendRef = useRef<((event: CanvasOutboundEvent) => void) | null>(null);
+
+  // Ref mirror of nodes so drag/marquee hooks can read current positions
+  // without re-renders or stale closures.
+  const nodesRef = useRef<CanvasNode[]>(nodes);
+  useLayoutEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   const {
     transform,
@@ -118,7 +129,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     remoteStrokes,
     send,
     onPointerMove: collabPointerMove,
-  } = useCanvasCollab(canvasId, userId, viewportRef, transformRef, {
+  } = useCanvasCollab(canvasId, userId, displayName, viewportRef, transformRef, {
     onNodeCreate: (node) => {
       setNodes((prev) => [...prev, node]);
     },
@@ -139,7 +150,12 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       setEdges((prev) =>
         prev.filter((e) => e.fromNodeId !== nodeId && e.toNodeId !== nodeId),
       );
-      setSelectedNodeId((prev) => (prev === nodeId ? null : prev));
+      setSelectedNodeIds((prev) => {
+        if (!prev.has(nodeId)) return prev;
+        const next = new Set(prev);
+        next.delete(nodeId);
+        return next;
+      });
       onDeleteCrdtDoc(nodeId);
     },
     onEdgeCreate: (edge) => {
@@ -148,13 +164,13 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     onEdgeDelete: (edgeId) => {
       setEdges((prev) => prev.filter((e) => e.id !== edgeId));
     },
-    onNodeSelect: (remoteUserId, nodeId) => {
+    onNodeSelect: (remoteUserId, nodeIds) => {
       setRemoteSelections((prev) => {
         const next = new Map(prev);
-        if (nodeId === null) {
+        if (nodeIds.length === 0) {
           next.delete(remoteUserId);
         } else {
-          next.set(remoteUserId, nodeId);
+          next.set(remoteUserId, new Set(nodeIds));
         }
         return next;
       });
@@ -189,11 +205,19 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     [send],
   );
 
-  // Move node locally + broadcast — called by drag hook
-  const moveNode = useCallback(
-    (id: string, x: number, y: number) => {
-      setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, x, y } : n)));
-      send({ type: "node_move", nodeId: id, x, y });
+  // Move multiple nodes locally + broadcast — called by drag hook
+  const moveNodes = useCallback(
+    (moves: Array<{ id: string; x: number; y: number }>) => {
+      setNodes((prev) => {
+        const moveMap = new Map(moves.map((m) => [m.id, m]));
+        return prev.map((n) => {
+          const m = moveMap.get(n.id);
+          return m ? { ...n, x: m.x, y: m.y } : n;
+        });
+      });
+      for (const m of moves) {
+        send({ type: "node_move", nodeId: m.id, x: m.x, y: m.y });
+      }
     },
     [send],
   );
@@ -209,11 +233,11 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
     [send],
   );
 
-  // Select node locally + broadcast
-  const selectNode = useCallback(
-    (nodeId: string | null) => {
-      setSelectedNodeId(nodeId);
-      send({ type: "node_select", userId, nodeId });
+  // Select nodes locally + broadcast
+  const selectNodes = useCallback(
+    (nodeIds: Set<string>) => {
+      setSelectedNodeIds(nodeIds);
+      send({ type: "node_select", userId, nodeIds: Array.from(nodeIds) });
     },
     [send, userId],
   );
@@ -224,13 +248,16 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       setEdges((prev) =>
         prev.filter((edge) => edge.fromNodeId !== nodeId && edge.toNodeId !== nodeId),
       );
-      if (selectedNodeId === nodeId) {
-        selectNode(null);
-      }
+      setSelectedNodeIds((prev) => {
+        if (!prev.has(nodeId)) return prev;
+        const next = new Set(prev);
+        next.delete(nodeId);
+        return next;
+      });
       onDeleteCrdtDoc(nodeId);
       send({ type: "node_delete", nodeId });
     },
-    [onDeleteCrdtDoc, selectedNodeId, selectNode, send],
+    [onDeleteCrdtDoc, send],
   );
 
   const cloneNode = useCallback(
@@ -241,16 +268,26 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       const clonedNode = cloneCanvasNode(sourceNode, 24, 24);
       setNodes((prev) => [...prev, clonedNode]);
       send({ type: "node_create", node: clonedNode });
-      selectNode(clonedNode.id);
+      selectNodes(new Set([clonedNode.id]));
     },
-    [nodes, send, selectNode],
+    [nodes, send, selectNodes],
+  );
+
+  const pasteNodeFromSnapshot = useCallback(
+    (sourceNode: CanvasNode) => {
+      const pastedNode = cloneCanvasNode(sourceNode, 24, 24);
+      setNodes((prev) => [...prev, pastedNode]);
+      send({ type: "node_create", node: pastedNode });
+      selectNodes(new Set([pastedNode.id]));
+    },
+    [send, selectNodes],
   );
 
   const {
     onNodePointerDown: dragPointerDown,
     onPointerMove: dragPointerMove,
     onPointerUp: dragPointerUp,
-  } = useNodeDrag(transformRef, moveNode);
+  } = useNodeDrag(transformRef, moveNodes, selectedNodeIds, nodesRef);
 
   const commitDrawStroke = useCallback(
     (pts: Array<[number, number]>, strokeThickness: number) => {
@@ -281,20 +318,21 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       );
       setNodes((prev) => [...prev, node]);
       send({ type: "node_create", node });
-      selectNode(node.id);
+      selectNodes(new Set([node.id]));
     },
-    [send, selectNode],
+    [send, selectNodes],
   );
 
   const selectToolController = useSelectToolController({
-    selectNode,
-    panPointerDown,
-    panPointerMove,
-    panPointerUp,
+    selectNodes,
     dragPointerDown,
     dragPointerMove,
     dragPointerUp,
     collabPointerMove,
+    viewportRef,
+    transformRef,
+    nodesRef,
+    selectedNodeIds,
   });
 
   const drawToolController = useDrawToolController({
@@ -331,7 +369,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       send({ type: "node_create", node });
 
       // Select the newly created node
-      selectNode(node.id);
+      selectNodes(new Set([node.id]));
 
       if (fromNodeId) {
         const edge: Edge = {
@@ -345,8 +383,30 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
 
       return node.id;
     },
-    [transformRef, send, selectNode],
+    [transformRef, send, selectNodes],
   );
+
+  const {
+    isSpacePanning,
+    onSpacePanPointerDown,
+    onSpacePanPointerMove,
+    onSpacePanPointerUp,
+  } = useCanvasShortcutContainer({
+    viewportRef,
+    nodes,
+    selectedNodeIds,
+    tool,
+    setTool,
+    selectNodes,
+    deleteNode,
+    cloneNode,
+    pasteNodeFromSnapshot,
+    panPointerDown,
+    panPointerMove,
+    panPointerUp,
+    collabPointerMove,
+    onLocalCursorModeChange: setLocalCursorMode,
+  });
 
   const gridSpacingPx = Math.max(4, GRID_SPACING * transform.zoom);
   const gridDotRadiusPx = Math.max(0.7, GRID_DOT_RADIUS * transform.zoom);
@@ -354,7 +414,7 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
   return (
     <div
       ref={viewportRef}
-      className="fixed inset-0 overflow-hidden bg-(--lc-canvas-bg)"
+      className="lc-canvas-cursorless fixed inset-0 overflow-hidden bg-(--lc-canvas-bg)"
       style={{
         backgroundImage: `radial-gradient(circle, var(--lc-canvas-dot) ${gridDotRadiusPx}px, transparent ${gridDotRadiusPx}px)`,
         backgroundSize: `${gridSpacingPx}px ${gridSpacingPx}px`,
@@ -376,6 +436,15 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
         {tool === "select" && <SpawnPanel onSpawn={handleSpawn} />}
       </div>
 
+      {isSpacePanning && (
+        <div
+          className="absolute inset-0 z-400 cursor-grab active:cursor-grabbing"
+          onPointerDown={onSpacePanPointerDown}
+          onPointerMove={onSpacePanPointerMove}
+          onPointerUp={onSpacePanPointerUp}
+        />
+      )}
+
       {activeToolController.layers}
 
       <CursorOverlay
@@ -389,13 +458,14 @@ export function Canvas({ canvasId, userId }: CanvasProps) {
       <EdgesOverlay nodes={nodes} edges={edges} transform={transform} />
       <SelectionOverlay
         nodes={nodes}
-        selectedNodeId={selectedNodeId}
+        selectedNodeIds={selectedNodeIds}
         remoteSelections={remoteSelections}
         users={users}
         transform={transform}
         onResize={resizeNode}
         onDelete={deleteNode}
         onClone={cloneNode}
+        onSpawn={handleSpawn}
         onLocalCursorModeChange={setLocalCursorMode}
       />
 

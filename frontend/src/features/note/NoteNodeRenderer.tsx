@@ -49,7 +49,7 @@ export function NoteNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
 
   return (
     <div
-      className="absolute cursor-grab select-none border border-(--lc-border-default) bg-(--lc-surface-1) p-3 active:cursor-grabbing"
+      className="absolute flex cursor-grab select-none flex-col overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
       style={{
         left: node.x,
         top: node.y,
@@ -58,10 +58,11 @@ export function NoteNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
       }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
-      <div className="mb-2 text-xs font-semibold text-(--lc-text-secondary)">Note</div>
+      <div className="border-b border-(--lc-border-default) px-3 py-2 text-xs font-semibold text-(--lc-text-secondary)">
+        Note
+      </div>
       <div
-        className="h-full"
-        style={{ height: node.height - 50 }} // subtract header + padding
+        className="flex-1 min-h-0 p-3"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <textarea

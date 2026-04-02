@@ -1,4 +1,6 @@
 let nextId = 1;
+const DEFAULT_CODE_LINE_COUNT = 16;
+const DEFAULT_CODE_CONTENT = "\n".repeat(DEFAULT_CODE_LINE_COUNT - 1);
 
 // ---------------------------------------------------------------------------
 // Base fields shared by every node type
@@ -154,8 +156,8 @@ export function createProblemNode(x: number, y: number): ProblemNode {
     type: 'problem',
     x,
     y,
-    width: 400,
-    height: 350,
+    width: 460,
+    height: 180,
     data: { status: 'empty' },
   };
 }
@@ -166,9 +168,9 @@ export function createCodeNode(x: number, y: number): CodeNode {
     type: 'code',
     x,
     y,
-    width: 400,
-    height: 250,
-    data: { content: '', language: 'python' },
+    width: 560,
+    height: 320,
+    data: { content: DEFAULT_CODE_CONTENT, language: 'python' },
   };
 }
 

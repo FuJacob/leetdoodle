@@ -1,4 +1,3 @@
-import type { CanvasNode } from "../../shared/nodes";
 import type { CanvasTool } from "../tools/types";
 
 export type ShortcutScope = "global" | "canvas" | "selection";
@@ -15,8 +14,7 @@ export interface ShortcutCommands {
 }
 
 export interface ShortcutContext {
-  selectedNodeId: string | null;
-  selectedNode: CanvasNode | null;
+  selectedNodeIds: Set<string>;
   tool: CanvasTool;
   isSpacePanning: boolean;
   isEditableTarget: boolean;

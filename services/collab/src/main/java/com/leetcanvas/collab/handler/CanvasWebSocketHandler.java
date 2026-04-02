@@ -137,42 +137,66 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      */
     private final ObjectMapper objectMapper;
 
-    private record CollabUser(String id, String color) {}
+    private record CollabUser(String id, String displayName, String color) {}
 
     private static final class CanvasPresenceState {
-        private final Map<String, String> colorByUser = new HashMap<>();
+        private final Map<String, CollabUser> usersById = new HashMap<>();
 
-        synchronized CollabUser onJoin(String userId) {
-            String color = colorByUser.computeIfAbsent(userId, ignored -> nextColor());
-            return new CollabUser(userId, color);
+        synchronized CollabUser onJoin(String userId, String displayName) {
+            CollabUser existing = usersById.get(userId);
+            if (existing != null) {
+                String normalizedName = normalizeDisplayName(displayName, userId);
+                if (!existing.displayName().equals(normalizedName)) {
+                    CollabUser updated = new CollabUser(userId, normalizedName, existing.color());
+                    usersById.put(userId, updated);
+                    return updated;
+                }
+                return existing;
+            }
+
+            String color = nextColor();
+            CollabUser created = new CollabUser(userId, normalizeDisplayName(displayName, userId), color);
+            usersById.put(userId, created);
+            return created;
         }
 
         synchronized boolean onLeave(String userId) {
-            return colorByUser.remove(userId) != null;
+            return usersById.remove(userId) != null;
         }
 
         synchronized List<CollabUser> snapshotUsers() {
-            List<CollabUser> users = new ArrayList<>();
-            for (Map.Entry<String, String> entry : colorByUser.entrySet()) {
-                users.add(new CollabUser(entry.getKey(), entry.getValue()));
-            }
+            List<CollabUser> users = new ArrayList<>(usersById.values());
             users.sort(java.util.Comparator.comparing(CollabUser::id));
             return users;
         }
 
         synchronized boolean isEmpty() {
-            return colorByUser.isEmpty();
+            return usersById.isEmpty();
         }
 
         private String nextColor() {
-            Set<String> used = new HashSet<>(colorByUser.values());
+            Set<String> used = new HashSet<>();
+            for (CollabUser user : usersById.values()) {
+                used.add(user.color());
+            }
             for (String color : USER_COLORS) {
                 if (!used.contains(color)) {
                     return color;
                 }
             }
-            int index = colorByUser.size() % USER_COLORS.length;
+            int index = usersById.size() % USER_COLORS.length;
             return USER_COLORS[index];
+        }
+
+        private String normalizeDisplayName(String displayName, String fallbackUserId) {
+            if (displayName == null) {
+                return fallbackUserId;
+            }
+            String normalized = displayName.trim();
+            if (normalized.isEmpty()) {
+                return fallbackUserId;
+            }
+            return normalized.length() <= 24 ? normalized : normalized.substring(0, 24);
         }
     }
 
@@ -250,7 +274,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
 
         CanvasPresenceState presenceState =
             canvasPresence.computeIfAbsent(msg.canvasId(), ignored -> new CanvasPresenceState());
-        CollabUser joinedUser = presenceState.onJoin(msg.userId());
+        CollabUser joinedUser = presenceState.onJoin(msg.userId(), msg.displayName());
 
         System.out.printf("User %s joined canvas %s (total sessions in canvas: %d)%n",
                 msg.userId(), msg.canvasId(), canvasSessions.get(msg.canvasId()).size());
@@ -429,6 +453,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         for (CollabUser user : users) {
             ObjectNode userNode = usersNode.addObject();
             userNode.put("id", user.id());
+            userNode.put("displayName", user.displayName());
             userNode.put("color", user.color());
         }
         sendToSession(session, new TextMessage(objectMapper.writeValueAsString(response)));
@@ -439,6 +464,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         response.put("type", "user_join");
         ObjectNode userNode = response.putObject("user");
         userNode.put("id", user.id());
+        userNode.put("displayName", user.displayName());
         userNode.put("color", user.color());
         broadcastToCanvas(canvasId, senderSessionId, objectMapper.writeValueAsString(response));
     }

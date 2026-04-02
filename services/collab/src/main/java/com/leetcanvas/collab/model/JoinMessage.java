@@ -35,4 +35,8 @@ public interface JoinMessage {
     String type();      // always "join" — used to route the message in the handler
     String canvasId();  // which canvas room to join
     String userId();    // tab/session-scoped participant id
+    @Value.Default
+    default String displayName() {
+        return "";
+    }
 }

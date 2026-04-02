@@ -43,7 +43,6 @@ export function NodeRenderer({
           node={node}
           onPointerDown={onPointerDown}
           onUpdate={onUpdate}
-          onSpawn={onSpawn}
         />
       );
     case "code":

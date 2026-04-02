@@ -3,6 +3,7 @@ import type { CanvasNode, Edge } from "./nodes";
 
 export interface CanvasPresenceUser {
   id: string;
+  displayName: string;
   color: string;
 }
 
@@ -19,7 +20,7 @@ export type CanvasOutboundEvent =
   | { type: "node_delete"; nodeId: string }
   | { type: "edge_create"; edge: Edge }
   | { type: "edge_delete"; edgeId: string }
-  | { type: "node_select"; userId: string; nodeId: string | null }
+  | { type: "node_select"; userId: string; nodeIds: string[] }
   | { type: "crdt_op"; docId: string; op: CrdtOp }
   | { type: "sync_request"; docId: string; stateVector: StateVector }
   | { type: "draw_points"; points: Array<[number, number]>; thickness: number }
@@ -43,7 +44,7 @@ export type CanvasInboundEvent =
   | { type: "node_delete"; userId: string; nodeId: string }
   | { type: "edge_create"; userId: string; edge: Edge }
   | { type: "edge_delete"; userId: string; edgeId: string }
-  | { type: "node_select"; userId: string; nodeId: string | null }
+  | { type: "node_select"; userId: string; nodeIds: string[] }
   | { type: "user_leave"; userId: string }
   | { type: "crdt_op"; userId: string; docId: string; op: CrdtOp }
   | { type: "sync_response"; docId: string; ops: CrdtOp[] }
@@ -62,7 +63,7 @@ export interface CanvasEventHandlers {
   onNodeDelete?: (nodeId: string) => void;
   onEdgeCreate?: (edge: Edge) => void;
   onEdgeDelete?: (edgeId: string) => void;
-  onNodeSelect?: (userId: string, nodeId: string | null) => void;
+  onNodeSelect?: (userId: string, nodeIds: string[]) => void;
   onUserJoin?: (user: CanvasPresenceUser) => void;
   onUserLeave?: (userId: string) => void;
   onCrdtOp?: (docId: string, op: CrdtOp, senderUserId: string) => void;

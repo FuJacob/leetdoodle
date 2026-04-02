@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { IconCopy, IconTrash } from "@tabler/icons-react";
-import type { CanvasNode } from "../shared/nodes";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IconCopy, IconPlus, IconTrash } from "@tabler/icons-react";
+import type { CanvasNode, NodeType } from "../shared/nodes";
 import type { CollabUser } from "./hooks/useCanvasCollab";
 import type { LocalCursorMode, Transform } from "./types";
+import {
+  CONTROL_ICON_SIZE,
+  CONTROL_ICON_STROKE,
+  NODE_CONTROL_OPTIONS,
+  OVERLAY_ACTION_ICON_SIZE,
+} from "./ui/controlOptions";
 
 interface Props {
   nodes: CanvasNode[];
-  selectedNodeId: string | null;
-  remoteSelections: Map<string, string>; // userId → nodeId
+  selectedNodeIds: Set<string>;
+  remoteSelections: Map<string, Set<string>>; // userId → nodeIds
   users: CollabUser[];
   transform: Transform;
   onResize: (nodeId: string, width: number, height: number) => void;
   onClone: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
+  onSpawn: (type: NodeType, fromNodeId?: string) => void;
   onLocalCursorModeChange: (mode: LocalCursorMode) => void;
 }
 
@@ -83,10 +90,12 @@ function CornerHandle({
 
 function ActionIconButton({
   title,
+  active = false,
   onClick,
   children,
 }: {
   title: string;
+  active?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -95,7 +104,11 @@ function ActionIconButton({
       type="button"
       title={title}
       aria-label={title}
-      className="flex h-8 w-8 items-center justify-center border border-(--lc-border-strong) bg-(--lc-surface-1) text-(--lc-text-secondary) shadow-sm transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+      className={`flex h-11 w-11 items-center justify-center border bg-(--lc-surface-1) text-(--lc-text-secondary) shadow-sm transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) ${
+        active
+          ? "border-(--lc-border-focus) text-(--lc-accent)"
+          : "border-(--lc-border-strong)"
+      }`}
       onPointerDown={(e) => {
         e.stopPropagation();
       }}
@@ -111,16 +124,18 @@ function ActionIconButton({
 
 export function SelectionOverlay({
   nodes,
-  selectedNodeId,
+  selectedNodeIds,
   remoteSelections,
   users,
   transform,
   onResize,
   onClone,
   onDelete,
+  onSpawn,
   onLocalCursorModeChange,
 }: Props) {
   const localSelectionColor = "var(--lc-selection-local)";
+  const [showAddNodePanel, setShowAddNodePanel] = useState(false);
   const dragRef = useRef<{
     active: boolean;
     corner: Corner;
@@ -136,31 +151,39 @@ export function SelectionOverlay({
     [users],
   );
 
-  const selectedNode = selectedNodeId
-    ? nodes.find((node) => node.id === selectedNodeId)
-    : null;
+  const selectedNodes = useMemo(
+    () => nodes.filter((n) => selectedNodeIds.has(n.id)),
+    [nodes, selectedNodeIds],
+  );
+
+  // Single-select: show resize handles + action toolbar
+  const singleSelectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
 
   useEffect(() => {
-    if (!selectedNode) {
+    if (selectedNodes.length === 0) {
       onLocalCursorModeChange("pointer");
     }
-  }, [selectedNode, onLocalCursorModeChange]);
+  }, [selectedNodes.length, onLocalCursorModeChange]);
+
+  useEffect(() => {
+    setShowAddNodePanel(false);
+  }, [singleSelectedNode?.id]);
 
   const handleDragStart = useCallback(
     (e: React.PointerEvent, corner: Corner) => {
-      if (!selectedNode) return;
+      if (!singleSelectedNode) return;
       e.currentTarget.setPointerCapture(e.pointerId);
       dragRef.current = {
         active: true,
         corner,
-        nodeId: selectedNode.id,
+        nodeId: singleSelectedNode.id,
         startX: e.clientX,
         startY: e.clientY,
-        startWidth: selectedNode.width,
-        startHeight: selectedNode.height,
+        startWidth: singleSelectedNode.width,
+        startHeight: singleSelectedNode.height,
       };
     },
-    [selectedNode],
+    [singleSelectedNode],
   );
 
   const handlePointerMove = useCallback(
@@ -196,7 +219,6 @@ export function SelectionOverlay({
           break;
       }
 
-      // Loaded problem nodes use content-derived height from DOM measurement sync.
       if (node.type === "problem" && node.data.status === "loaded") {
         newHeight = node.height;
       }
@@ -212,14 +234,27 @@ export function SelectionOverlay({
   }, [onLocalCursorModeChange]);
 
   const handleClone = useCallback(() => {
-    if (!selectedNode) return;
-    onClone(selectedNode.id);
-  }, [selectedNode, onClone]);
+    if (!singleSelectedNode) return;
+    onClone(singleSelectedNode.id);
+  }, [singleSelectedNode, onClone]);
 
   const handleDelete = useCallback(() => {
-    if (!selectedNode) return;
-    onDelete(selectedNode.id);
-  }, [selectedNode, onDelete]);
+    if (!singleSelectedNode) return;
+    onDelete(singleSelectedNode.id);
+  }, [singleSelectedNode, onDelete]);
+
+  const handleAddNodeToggle = useCallback(() => {
+    setShowAddNodePanel((prev) => !prev);
+  }, []);
+
+  const handleSpawnFromSelected = useCallback(
+    (type: NodeType) => {
+      if (!singleSelectedNode) return;
+      onSpawn(type, singleSelectedNode.id);
+      setShowAddNodePanel(false);
+    },
+    [singleSelectedNode, onSpawn],
+  );
 
   return (
     <div
@@ -227,98 +262,133 @@ export function SelectionOverlay({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
-      {Array.from(remoteSelections.entries()).map(([remoteUserId, nodeId]) => {
-        const node = nodes.find((n) => n.id === nodeId);
-        if (!node) return null;
-
+      {/* Remote selections */}
+      {Array.from(remoteSelections.entries()).flatMap(([remoteUserId, nodeIds]) => {
         const color =
           usersById.get(remoteUserId)?.color ?? REMOTE_SELECTION_FALLBACK_COLOR;
-        const x = node.x * transform.zoom + transform.x;
-        const y = node.y * transform.zoom + transform.y;
-        const w = node.width * transform.zoom;
-        const h = node.height * transform.zoom;
+        return Array.from(nodeIds).map((nodeId) => {
+          const node = nodes.find((n) => n.id === nodeId);
+          if (!node) return null;
 
-        return (
-          <div
-            key={remoteUserId}
-            className="absolute"
-            style={{
-              left: x - 2,
-              top: y - 2,
-              width: w + 4,
-              height: h + 4,
-              border: `2px solid ${color}`,
-              borderRadius: 2,
-            }}
-          />
-        );
+          const x = node.x * transform.zoom + transform.x;
+          const y = node.y * transform.zoom + transform.y;
+          const w = node.width * transform.zoom;
+          const h = node.height * transform.zoom;
+
+          return (
+            <div
+              key={`${remoteUserId}-${nodeId}`}
+              className="absolute"
+              style={{
+                left: x - 2,
+                top: y - 2,
+                width: w + 4,
+                height: h + 4,
+                border: `2px solid ${color}`,
+                borderRadius: 2,
+              }}
+            />
+          );
+        });
       })}
 
-      {selectedNode && (
-        <>
-          <div
-            className="absolute"
-            style={{
-              left: selectedNode.x * transform.zoom + transform.x,
-              top: selectedNode.y * transform.zoom + transform.y,
-              width: selectedNode.width * transform.zoom,
-              height: selectedNode.height * transform.zoom,
-              border: `2px solid ${localSelectionColor}`,
-            }}
+      {/* Local selection borders for all selected nodes */}
+      {selectedNodes.map((node) => (
+        <div
+          key={node.id}
+          className="absolute"
+          style={{
+            left: node.x * transform.zoom + transform.x,
+            top: node.y * transform.zoom + transform.y,
+            width: node.width * transform.zoom,
+            height: node.height * transform.zoom,
+            border: `2px solid ${localSelectionColor}`,
+          }}
+        />
+      ))}
+
+      {/* Single-select: corner handles + action toolbar */}
+      {singleSelectedNode && (
+        <div className="pointer-events-auto">
+          <CornerHandle
+            corner="nw"
+            x={singleSelectedNode.x * transform.zoom + transform.x}
+            y={singleSelectedNode.y * transform.zoom + transform.y}
+            onDragStart={handleDragStart}
+            onCursorModeChange={onLocalCursorModeChange}
+          />
+          <CornerHandle
+            corner="ne"
+            x={(singleSelectedNode.x + singleSelectedNode.width) * transform.zoom + transform.x}
+            y={singleSelectedNode.y * transform.zoom + transform.y}
+            onDragStart={handleDragStart}
+            onCursorModeChange={onLocalCursorModeChange}
+          />
+          <CornerHandle
+            corner="sw"
+            x={singleSelectedNode.x * transform.zoom + transform.x}
+            y={(singleSelectedNode.y + singleSelectedNode.height) * transform.zoom + transform.y}
+            onDragStart={handleDragStart}
+            onCursorModeChange={onLocalCursorModeChange}
+          />
+          <CornerHandle
+            corner="se"
+            x={(singleSelectedNode.x + singleSelectedNode.width) * transform.zoom + transform.x}
+            y={(singleSelectedNode.y + singleSelectedNode.height) * transform.zoom + transform.y}
+            onDragStart={handleDragStart}
+            onCursorModeChange={onLocalCursorModeChange}
           />
 
-          <div className="pointer-events-auto">
-            <CornerHandle
-              corner="nw"
-              x={selectedNode.x * transform.zoom + transform.x}
-              y={selectedNode.y * transform.zoom + transform.y}
-              onDragStart={handleDragStart}
-              onCursorModeChange={onLocalCursorModeChange}
-            />
-            <CornerHandle
-              corner="ne"
-              x={(selectedNode.x + selectedNode.width) * transform.zoom + transform.x}
-              y={selectedNode.y * transform.zoom + transform.y}
-              onDragStart={handleDragStart}
-              onCursorModeChange={onLocalCursorModeChange}
-            />
-            <CornerHandle
-              corner="sw"
-              x={selectedNode.x * transform.zoom + transform.x}
-              y={(selectedNode.y + selectedNode.height) * transform.zoom + transform.y}
-              onDragStart={handleDragStart}
-              onCursorModeChange={onLocalCursorModeChange}
-            />
-            <CornerHandle
-              corner="se"
-              x={(selectedNode.x + selectedNode.width) * transform.zoom + transform.x}
-              y={(selectedNode.y + selectedNode.height) * transform.zoom + transform.y}
-              onDragStart={handleDragStart}
-              onCursorModeChange={onLocalCursorModeChange}
-            />
-
-            <div
-              className="absolute flex flex-col gap-2"
-              style={{
-                left:
-                  (selectedNode.x + selectedNode.width) * transform.zoom +
-                  transform.x +
-                  TOOLBAR_HORIZONTAL_OFFSET,
-                top:
-                  selectedNode.y * transform.zoom +
-                  transform.y +
-                  TOOLBAR_VERTICAL_OFFSET,
-              }}
+          <div
+            className="absolute flex flex-col gap-2"
+            style={{
+              left:
+                (singleSelectedNode.x + singleSelectedNode.width) * transform.zoom +
+                transform.x +
+                TOOLBAR_HORIZONTAL_OFFSET,
+              top:
+                singleSelectedNode.y * transform.zoom +
+                transform.y +
+                TOOLBAR_VERTICAL_OFFSET,
+            }}
+          >
+            <ActionIconButton
+              title="Add linked node"
+              active={showAddNodePanel}
+              onClick={handleAddNodeToggle}
             >
-              <ActionIconButton title="Clone node" onClick={handleClone}>
-                <IconCopy size={16} stroke={2} />
-              </ActionIconButton>
-              <ActionIconButton title="Delete node" onClick={handleDelete}>
-                <IconTrash size={16} stroke={2} />
-              </ActionIconButton>
-            </div>
+              <IconPlus size={OVERLAY_ACTION_ICON_SIZE} stroke={2} />
+            </ActionIconButton>
+            <ActionIconButton title="Clone node" onClick={handleClone}>
+              <IconCopy size={OVERLAY_ACTION_ICON_SIZE} stroke={2} />
+            </ActionIconButton>
+            <ActionIconButton title="Delete node" onClick={handleDelete}>
+              <IconTrash size={OVERLAY_ACTION_ICON_SIZE} stroke={2} />
+            </ActionIconButton>
+
+            {showAddNodePanel && (
+              <div
+                className="absolute right-full top-0 mr-2 flex gap-2 border border-(--lc-border-strong) bg-(--lc-surface-2) p-2"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {NODE_CONTROL_OPTIONS.map(({ type, label, Icon }) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className="flex items-center gap-2 border border-(--lc-border-default) bg-(--lc-surface-1) px-2 py-1 text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSpawnFromSelected(type);
+                    }}
+                  >
+                    <Icon size={CONTROL_ICON_SIZE} stroke={CONTROL_ICON_STROKE} />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

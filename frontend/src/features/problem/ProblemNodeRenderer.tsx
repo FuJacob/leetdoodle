@@ -1,14 +1,11 @@
 import { useCallback, useRef, useState } from "react";
-import { IconPlus, IconX } from "@tabler/icons-react";
 import type {
   CanvasNode,
-  NodeType,
   ProblemData,
   ProblemNode,
 } from "../../shared/nodes";
 import { extractSlug, parseStats, difficultyClass } from "./utils";
 import { useNodeContentSizeSync } from "../../canvas/hooks/useNodeContentSizeSync";
-import { NODE_CONTROL_OPTIONS } from "../../canvas/ui/controlOptions";
 
 const LEETCODE_SERVICE = "http://localhost:8081";
 const MIN_NODE_WIDTH = 100;
@@ -21,19 +18,15 @@ interface Props {
     node: CanvasNode,
   ) => void;
   onUpdate: (id: string, patch: Partial<CanvasNode>) => void;
-  onSpawn: (type: NodeType, fromNodeId?: string) => void;
 }
 
 export function ProblemNodeRenderer({
   node,
   onPointerDown,
   onUpdate,
-  onSpawn,
 }: Props) {
   const [url, setUrl] = useState("https://leetcode.com/problems/two-sum/");
   const [loading, setLoading] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
-  const [showAddNodePanel, setShowAddNodePanel] = useState(false);
   const loadedRootRef = useRef<HTMLDivElement | null>(null);
   const handleSizeSync = useCallback(
     (nodeId: string, width: number, height: number) => {
@@ -98,12 +91,7 @@ export function ProblemNodeRenderer({
   }
 
   const base =
-    "absolute select-none border border-(--lc-border-default) bg-(--lc-surface-1) p-3";
-
-  const handleMouseEnter = () => setIsHovering(true);
-  const handleMouseLeave = () => setIsHovering(false);
-  const handleAddNode = () => setShowAddNodePanel(true);
-  const handleCloseAddNodePanel = () => setShowAddNodePanel(false);
+    "absolute select-none border border-(--lc-border-default) bg-(--lc-surface-1) overflow-hidden";
   // ── empty / error: URL input ─────────────────────────────────────────────
 
   if (node.data.status === "empty" || node.data.status === "error") {
@@ -118,13 +106,13 @@ export function ProblemNodeRenderer({
           height: node.height,
         }}
         onPointerDown={(e) => onPointerDown(e, node)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
       >
-        <div className="mb-2 text-xs font-semibold text-(--lc-text-secondary)">Problem</div>
+        <div className="border-b border-(--lc-border-default) px-3 py-2 text-xs font-semibold text-(--lc-text-secondary)">
+          Problem
+        </div>
         {/* Stop pointer-down so typing in the input doesn't start a drag */}
         <div
-          className="flex-1 min-h-0"
+          className="flex-1 min-h-0 p-3"
           onPointerDown={(e) => e.stopPropagation()}
         >
           <input
@@ -157,92 +145,42 @@ export function ProblemNodeRenderer({
   return (
     <div
       ref={loadedRootRef}
-      className={`${base} cursor-grab active:cursor-grabbing`}
+      className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
       style={{ left: node.x, top: node.y, width: node.width }}
       onPointerDown={(e) => onPointerDown(e, node)}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
-      <div className="flex items-baseline justify-between mb-1">
-        <div className="text-sm font-medium text-(--lc-text-primary)">{title}</div>
-        <div className={`text-xs ml-2 shrink-0 ${difficultyClass(difficulty)}`}>
-          {difficulty}
+      <div className="flex items-baseline justify-between border-b border-(--lc-border-default) px-3 py-2">
+        <div className="text-sm font-medium text-(--lc-text-primary)">
+          {title}
         </div>
+        <div className={`text-xs ml-2 shrink-0 ${difficultyClass(difficulty)}`}>{difficulty}</div>
       </div>
 
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          {tags.map((t) => (
-            <span
-              key={t.id}
-              className="border border-(--lc-border-default) px-1 text-[10px] text-(--lc-text-secondary)"
-            >
-              {t.name}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Render HTML content directly — safe since it's from our own DB */}
-      <div
-        className="mb-2 min-h-0 flex-1 overflow-y-auto text-xs leading-relaxed text-(--lc-text-secondary) [&_a]:text-(--lc-link) [&_code]:bg-(--lc-surface-2) [&_code]:px-1 [&_code]:text-(--lc-text-secondary) [&_ol]:list-decimal [&_ol]:pl-4 [&_pre]:overflow-x-auto [&_pre]:bg-(--lc-surface-2) [&_pre]:p-2 [&_strong]:text-(--lc-text-primary) [&_ul]:list-disc [&_ul]:pl-4"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
-
-      <div className="flex gap-3 text-[10px] text-(--lc-text-muted)">
-        <span>▲ {likes}</span>
-        <span>▼ {dislikes}</span>
-        {parsedStats && <span>✓ {parsedStats.acRate}</span>}
-      </div>
-
-      {/* Extends hover area below the node so the button doesn't flicker */}
-      <div
-        className="absolute bottom-2 left-0 right-0 translate-y-full"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        {/* Transparent bridge so mouse doesn't leave the hover zone */}
-        <div className="h-1" />
-        {isHovering && !showAddNodePanel && (
-          <div className="flex justify-center">
-            <button
-              className="flex items-center gap-1 border border-(--lc-border-default) bg-(--lc-surface-1) px-3 py-1 text-[10px] text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
-              onClick={handleAddNode}
-            >
-              <IconPlus size={12} stroke={2} />
-              <span>Add node</span>
-            </button>
+      <div className="p-3">
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {tags.map((t) => (
+              <span
+                key={t.id}
+                className="border border-(--lc-border-default) px-1 text-[10px] text-(--lc-text-secondary)"
+              >
+                {t.name}
+              </span>
+            ))}
           </div>
         )}
 
-        {showAddNodePanel && (
-          <div
-            className="relative mt-2 border border-(--lc-border-strong) bg-(--lc-surface-2) p-2 text-xs"
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={handleCloseAddNodePanel}
-              className="absolute right-1 top-1 text-(--lc-text-muted) transition hover:text-(--lc-text-secondary)"
-              aria-label="Close add node panel"
-            >
-              <IconX size={12} stroke={2} />
-            </button>
-            <div className="flex gap-2 pr-4">
-              {NODE_CONTROL_OPTIONS.map(({ type, label, Icon }) => (
-                <button
-                  key={type}
-                  onClick={() => {
-                    onSpawn(type, node.id);
-                    handleCloseAddNodePanel();
-                  }}
-                  className="flex items-center gap-1 border border-(--lc-border-default) bg-(--lc-surface-1) px-2 py-1 text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
-                >
-                  <Icon size={13} stroke={1.8} />
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Render HTML content directly — safe since it's from our own DB */}
+        <div
+          className="mb-2 text-xs leading-relaxed text-(--lc-text-secondary) [&_a]:text-(--lc-link) [&_code]:bg-(--lc-surface-2) [&_code]:px-1 [&_code]:text-(--lc-text-secondary) [&_ol]:list-decimal [&_ol]:pl-4 [&_pre]:overflow-x-auto [&_pre]:bg-(--lc-surface-2) [&_pre]:p-2 [&_strong]:text-(--lc-text-primary) [&_ul]:list-disc [&_ul]:pl-4"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+
+        <div className="flex gap-3 text-[10px] text-(--lc-text-muted)">
+          <span>▲ {likes}</span>
+          <span>▼ {dislikes}</span>
+          {parsedStats && <span>✓ {parsedStats.acRate}</span>}
+        </div>
       </div>
     </div>
   );

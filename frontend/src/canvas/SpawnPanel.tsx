@@ -1,7 +1,11 @@
 import { useState } from "react";
 import { IconShare3 } from "@tabler/icons-react";
 import type { NodeType } from "../shared/nodes";
-import { NODE_CONTROL_OPTIONS } from "./ui/controlOptions";
+import {
+  CONTROL_ICON_SIZE,
+  CONTROL_ICON_STROKE,
+  NODE_CONTROL_OPTIONS,
+} from "./ui/controlOptions";
 
 interface SpawnPanelProps {
   onSpawn: (type: NodeType) => void;
@@ -37,7 +41,7 @@ export function SpawnPanel({ onSpawn }: SpawnPanelProps) {
             onClick={() => onSpawn(type)}
             className="flex items-center gap-2 border border-(--lc-border-default) px-3 py-2 text-left text-sm text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
           >
-            <Icon size={16} stroke={1.8} />
+            <Icon size={CONTROL_ICON_SIZE} stroke={CONTROL_ICON_STROKE} />
             <span>{label}</span>
           </button>
         ))}
@@ -47,7 +51,7 @@ export function SpawnPanel({ onSpawn }: SpawnPanelProps) {
         onClick={handleShareCanvas}
         className="mt-1 flex items-center gap-2 border border-(--lc-border-default) bg-(--lc-surface-1) px-3 py-2 text-left text-sm text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
       >
-        <IconShare3 size={16} stroke={1.8} />
+        <IconShare3 size={CONTROL_ICON_SIZE} stroke={CONTROL_ICON_STROKE} />
         <span>Share Canvas</span>
       </button>
       <div className="text-[10px] text-(--lc-text-muted)">

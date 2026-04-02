@@ -26,6 +26,7 @@ export interface RemoteStroke {
 export function useCanvasCollab(
   canvasId: string,
   userId: string,
+  displayName: string,
   viewportRef: React.RefObject<HTMLDivElement | null>,
   transformRef: React.RefObject<Transform>,
   handlers: CanvasEventHandlers = {},
@@ -55,7 +56,7 @@ export function useCanvasCollab(
 
       // Assign only when open so stale constructing sockets cannot clobber ref.
       wsRef.current = ws;
-      ws.send(JSON.stringify({ type: "join", canvasId, userId }));
+      ws.send(JSON.stringify({ type: "join", canvasId, userId, displayName }));
     };
 
     ws.onmessage = (event) => {
@@ -74,19 +75,42 @@ export function useCanvasCollab(
       switch (msg.type) {
         case "presence_snapshot":
           setUsers(() =>
-            [...msg.users].sort((a, b) => {
-              if (a.id === userId) return -1;
-              if (b.id === userId) return 1;
-              return a.id.localeCompare(b.id);
-            }),
+            [...msg.users]
+              .map((user) => ({
+                ...user,
+                displayName:
+                  typeof user.displayName === "string" && user.displayName.trim().length > 0
+                    ? user.displayName
+                    : user.id,
+              }))
+              .sort((a, b) => {
+                if (a.id === userId) return -1;
+                if (b.id === userId) return 1;
+                return a.id.localeCompare(b.id);
+              }),
           );
           break;
 
         case "user_join":
-          handlersRef.current.onUserJoin?.(msg.user);
+          handlersRef.current.onUserJoin?.({
+            ...msg.user,
+            displayName:
+              typeof msg.user.displayName === "string" &&
+              msg.user.displayName.trim().length > 0
+                ? msg.user.displayName
+                : msg.user.id,
+          });
           setUsers((prev) => {
+            const userWithDisplayName = {
+              ...msg.user,
+              displayName:
+                typeof msg.user.displayName === "string" &&
+                msg.user.displayName.trim().length > 0
+                  ? msg.user.displayName
+                  : msg.user.id,
+            };
             const others = prev.filter((user) => user.id !== msg.user.id);
-            return [...others, msg.user].sort((a, b) => {
+            return [...others, userWithDisplayName].sort((a, b) => {
               if (a.id === userId) return -1;
               if (b.id === userId) return 1;
               return a.id.localeCompare(b.id);
@@ -129,7 +153,7 @@ export function useCanvasCollab(
           break;
 
         case "node_select":
-          handlersRef.current.onNodeSelect?.(msg.userId, msg.nodeId);
+          handlersRef.current.onNodeSelect?.(msg.userId, msg.nodeIds);
           break;
 
         case "draw_points":
@@ -193,7 +217,7 @@ export function useCanvasCollab(
     return () => {
       ws.close();
     };
-  }, [canvasId, userId]);
+  }, [canvasId, userId, displayName]);
 
   const send = useCallback(
     (event: CanvasOutboundEvent) => {

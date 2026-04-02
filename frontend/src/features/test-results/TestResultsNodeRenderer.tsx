@@ -95,7 +95,7 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
 
   return (
     <div
-      className="absolute cursor-grab select-none overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
+      className="absolute flex cursor-grab select-none flex-col overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
       style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
@@ -135,12 +135,12 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
 
       {/* Body */}
       <div
-        className="h-[calc(100%-33px)] overflow-y-auto p-3"
+        className="flex-1 min-h-0 overflow-y-auto p-3"
         onPointerDown={(e) => e.stopPropagation()}
       >
         {/* Case selector row — shared between both modes */}
         {hasCases && (
-          <div className="mb-3 max-h-[3.25rem] overflow-y-auto overflow-x-hidden pr-1">
+          <div className="mb-3 max-h-13 overflow-y-auto overflow-x-hidden pr-1">
             <div className="flex flex-wrap content-start gap-1">
               {data.cases.map((c, idx) => (
                 <CaseTab

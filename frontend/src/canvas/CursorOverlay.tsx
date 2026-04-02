@@ -39,7 +39,7 @@ function CursorGlyph({
   fill,
   label,
   labelColor,
-  zClassName = "z-[100]",
+  zClassName = "z-100",
 }: {
   x: number;
   y: number;
@@ -128,7 +128,7 @@ export function CursorOverlay({
   );
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[200]">
+    <div className="pointer-events-none absolute inset-0 z-200">
       {Array.from(cursors.values()).map(({ userId, x, y }) => {
         const sx = x * transform.zoom + transform.x;
         const sy = y * transform.zoom + transform.y;
@@ -150,11 +150,11 @@ export function CursorOverlay({
             x={localCursor.x}
             y={localCursor.y}
             fill="#000000"
-            zClassName="z-[320]"
+            zClassName="z-320"
           />
         ) : (
           <img
-            className="pointer-events-none absolute z-[320]"
+            className="pointer-events-none absolute z-320"
             src={LOCAL_RESIZE_CURSOR_IMAGE_BY_MODE[localCursorMode]}
             alt=""
             aria-hidden="true"
