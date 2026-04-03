@@ -3,7 +3,8 @@ import type { CollabUser, RemoteCursor } from "./hooks/useCanvasCollab";
 import type { LocalCursorMode, Transform } from "./types";
 import resizeNeswCursorImage from "../assets/Cursor/Resize/North East South West.png";
 import resizeNwseCursorImage from "../assets/Cursor/Resize/North West South East.png";
-
+import grabCursorImage from "../assets/Cursor/Grab/Grab.png";
+import grabbingCursorImage from "../assets/Cursor/Grab/Grabbing.png";
 interface LocalCursor {
   x: number;
   y: number;
@@ -31,6 +32,8 @@ const LOCAL_RESIZE_CURSOR_IMAGE_BY_MODE: Record<
 > = {
   "resize-nwse": resizeNwseCursorImage,
   "resize-nesw": resizeNeswCursorImage,
+  grab: grabCursorImage,
+  grabbing: grabbingCursorImage,
 };
 
 function CursorGlyph({
@@ -57,8 +60,8 @@ function CursorGlyph({
       }}
     >
       <svg
-        width="40"
-        height="40"
+        width="30"
+        height="30"
         viewBox="0 0 26 26"
         aria-hidden="true"
         focusable="false"
@@ -144,8 +147,8 @@ export function CursorOverlay({
           />
         );
       })}
-      {localCursor && (
-        localCursorMode === "pointer" ? (
+      {localCursor &&
+        (localCursorMode == "pointer" ? (
           <CursorGlyph
             x={localCursor.x}
             y={localCursor.y}
@@ -164,8 +167,7 @@ export function CursorOverlay({
               top: localCursor.y - CURSOR_TIP_OFFSET_Y,
             }}
           />
-        )
-      )}
+        ))}
     </div>
   );
 }

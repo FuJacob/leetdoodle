@@ -47,14 +47,12 @@ build_service_image() {
 
 copy_bundle_template() {
   rm -rf "${BUNDLE_DIR}"
-  mkdir -p "${IMAGES_DIR}" "${BUNDLE_DIR}/debezium/conf" "${BUNDLE_DIR}/leetcode/seed"
+  mkdir -p "${IMAGES_DIR}" "${BUNDLE_DIR}/leetcode/seed"
 
   cp "${TEMPLATE_DIR}/docker-compose.yml" "${BUNDLE_DIR}/docker-compose.yml"
   cp "${TEMPLATE_DIR}/up.sh" "${BUNDLE_DIR}/up.sh"
   chmod +x "${BUNDLE_DIR}/up.sh"
 
-  cp "${REPO_ROOT}/infra/debezium/conf/application.properties" \
-    "${BUNDLE_DIR}/debezium/conf/application.properties"
   cp "${REPO_ROOT}/services/leetcode/data/seed/official-questions.json" \
     "${BUNDLE_DIR}/leetcode/seed/official-questions.json"
   cp "${REPO_ROOT}/services/leetcode/data/seed/test-cases.jsonl" \
@@ -72,7 +70,6 @@ docker buildx version >/dev/null
 require_file "${SERVICES_DIR}/Dockerfile.service"
 require_file "${TEMPLATE_DIR}/docker-compose.yml"
 require_file "${TEMPLATE_DIR}/up.sh"
-require_file "${REPO_ROOT}/infra/debezium/conf/application.properties"
 require_file "${REPO_ROOT}/services/leetcode/data/seed/official-questions.json"
 require_file "${REPO_ROOT}/services/leetcode/data/seed/test-cases.jsonl"
 

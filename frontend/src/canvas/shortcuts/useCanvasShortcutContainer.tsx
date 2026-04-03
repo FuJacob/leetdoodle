@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { CanvasNode } from "../../shared/nodes";
 import type { LocalCursorMode } from "../types";
 import type { CanvasTool } from "../tools/types";
@@ -19,6 +25,7 @@ interface UseCanvasShortcutContainerArgs {
   panPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
   panPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   panPointerUp: (e: React.PointerEvent<HTMLDivElement>) => void;
+  cancelPan: () => void;
   collabPointerMove: (e: React.PointerEvent<HTMLDivElement>) => void;
   onLocalCursorModeChange: (mode: LocalCursorMode) => void;
 }
@@ -42,7 +49,9 @@ function isEditableEventTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
 
   if (
-    target.closest("input, textarea, select, [contenteditable], .cm-editor, [role='textbox']")
+    target.closest(
+      "input, textarea, select, [contenteditable], .cm-editor, [role='textbox']",
+    )
   ) {
     return true;
   }
@@ -75,6 +84,7 @@ export function useCanvasShortcutContainer({
   panPointerDown,
   panPointerMove,
   panPointerUp,
+  cancelPan,
   collabPointerMove,
   onLocalCursorModeChange,
 }: UseCanvasShortcutContainerArgs) {
@@ -128,7 +138,9 @@ export function useCanvasShortcutContainer({
         const ids = stateRef.current.selectedNodeIds;
         if (ids.size !== 1) return;
         const nodeId = ids.values().next().value!;
-        const selectedNode = stateRef.current.nodes.find((node) => node.id === nodeId);
+        const selectedNode = stateRef.current.nodes.find(
+          (node) => node.id === nodeId,
+        );
         if (!selectedNode) return;
         clipboardRef.current = cloneNodeSnapshot(selectedNode);
       },
@@ -139,11 +151,16 @@ export function useCanvasShortcutContainer({
       setTool,
       beginSpacePan: () => {
         if (stateRef.current.isSpacePanning) return;
-        onLocalCursorModeChange("pointer");
+        onLocalCursorModeChange("grab");
         setIsSpacePanning(true);
       },
       endSpacePan: () => {
         if (!stateRef.current.isSpacePanning) return;
+        // Space-pan can end from keyboard events before the pointer lifecycle
+        // completes. Explicitly cancelling pan state prevents stale "active"
+        // pan state from leaking into the next move sequence.
+        cancelPan();
+        onLocalCursorModeChange("pointer");
         setIsSpacePanning(false);
       },
     };
@@ -154,6 +171,7 @@ export function useCanvasShortcutContainer({
     pasteNodeFromSnapshot,
     setTool,
     onLocalCursorModeChange,
+    cancelPan,
   ]);
 
   const buildContext = useCallback(
@@ -170,7 +188,9 @@ export function useCanvasShortcutContainer({
         isEditableTarget: isEditableEventTarget(target),
         isCanvasEventTarget: isCanvasEventTarget(target, viewport),
         isViewportFocused:
-          !!viewport && activeElement instanceof Node && viewport.contains(activeElement),
+          !!viewport &&
+          activeElement instanceof Node &&
+          viewport.contains(activeElement),
         commands: commandsRef.current,
       };
     },
@@ -303,13 +323,15 @@ export function useCanvasShortcutContainer({
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.stopPropagation();
       panPointerDown(event);
+      onLocalCursorModeChange("grabbing");
     },
-    [panPointerDown],
+    [panPointerDown, onLocalCursorModeChange],
   );
 
   const onSpacePanPointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.stopPropagation();
+
       panPointerMove(event);
       collabPointerMove(event);
     },
@@ -319,9 +341,10 @@ export function useCanvasShortcutContainer({
   const onSpacePanPointerUp = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.stopPropagation();
+      onLocalCursorModeChange("grab");
       panPointerUp(event);
     },
-    [panPointerUp],
+    [panPointerUp, onLocalCursorModeChange],
   );
 
   return {

@@ -17,7 +17,6 @@ flowchart LR
     subgraph INFRA[Local/Runtime Infrastructure]
       PG[(PostgreSQL)]
       RMQ[(RabbitMQ)]
-      DBZ[Debezium Server]
       DCK[(Docker Engine)]
     end
 
@@ -30,8 +29,7 @@ flowchart LR
     LEE <--> PG
     SUB <--> PG
     SUB -->|writes outbox row| PG
-    DBZ -->|publishes eval job| RMQ
-    DBZ <-->|CDC WAL| PG
+    SUB -->|publishes eval job| RMQ
     WRK <-->|consumes eval jobs| RMQ
     WRK <--> PG
     WRK -->|exec sandbox| DCK
@@ -41,11 +39,11 @@ flowchart LR
 
 - **Frontend users** interact only through the frontend client.
 - **Frontend app** is the sole direct consumer of HTTP/WebSocket backend APIs.
-- **Infrastructure dependencies** are PostgreSQL, RabbitMQ, Debezium, and Docker.
+- **Infrastructure dependencies** are PostgreSQL, RabbitMQ, and Docker.
 
 ## Key Responsibility Boundaries
 
 - `collab` owns low-latency multi-user event relay.
 - `leetcode-service` owns problem catalog and internal eval-data serving (gRPC).
-- `submissions` owns submission creation lifecycle and outbox write.
+- `submissions` owns submission creation lifecycle, outbox write, and outbox dispatch.
 - `worker` owns async evaluation execution and result persistence.

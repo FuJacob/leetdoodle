@@ -16,6 +16,8 @@ interface PanState {
   startY: number;
   startTransformX: number;
   startTransformY: number;
+  pointerId: number | null;
+  target: HTMLDivElement | null;
 }
 
 export function useCanvasTransform(
@@ -38,7 +40,32 @@ export function useCanvasTransform(
     startY: 0,
     startTransformX: 0,
     startTransformY: 0,
+    pointerId: null,
+    target: null,
   });
+
+  const resetPan = useCallback((releaseCapture: boolean) => {
+    const { target, pointerId } = panRef.current;
+
+    if (
+      releaseCapture &&
+      target &&
+      pointerId !== null &&
+      target.hasPointerCapture(pointerId)
+    ) {
+      target.releasePointerCapture(pointerId);
+    }
+
+    panRef.current = {
+      active: false,
+      startX: 0,
+      startY: 0,
+      startTransformX: 0,
+      startTransformY: 0,
+      pointerId: null,
+      target: null,
+    };
+  }, []);
 
   // Non-passive wheel listener — must be attached via addEventListener to allow preventDefault.
   // React 19 attaches onWheel as passive, which silently ignores e.preventDefault().
@@ -68,6 +95,8 @@ export function useCanvasTransform(
       startY: e.clientY,
       startTransformX: transformRef.current.x,
       startTransformY: transformRef.current.y,
+      pointerId: e.pointerId,
+      target: e.currentTarget,
     };
   }, []);
 
@@ -82,13 +111,19 @@ export function useCanvasTransform(
     }));
   }, []);
 
-  const onPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerUp = useCallback(() => {
     // Guard: only release capture if this pointer was captured for panning.
     // Calling releasePointerCapture on an uncaptured pointer throws a DOMException.
     if (!panRef.current.active) return;
-    panRef.current.active = false;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  }, []);
+    resetPan(true);
+  }, [resetPan]);
 
-  return { transform, transformRef, onPointerDown, onPointerMove, onPointerUp };
+  return {
+    transform,
+    transformRef,
+    onPointerDown,
+    onPointerMove,
+    onPointerUp,
+    cancelPan: () => resetPan(true),
+  };
 }

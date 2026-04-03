@@ -1,8 +1,6 @@
 package com.leetdoodle.submissions.messaging;
 
 import org.springframework.amqp.core.*;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,9 +8,8 @@ import org.springframework.context.annotation.Configuration;
  * Declares the exchange, queue, and binding in RabbitMQ.
  *
  * Spring AMQP calls these "admin beans" — they're idempotent declarations
- * that ensure the topology exists before any message is published. Even
- * though the submissions service no longer publishes directly (Debezium does),
- * we keep these declarations here so the queue exists when the worker starts.
+ * that ensure the topology exists before any message is published. The
+ * submissions service owns dispatch, so it also owns the queue contract.
  *
  * WHY KEEP THE TOPOLOGY IN SUBMISSIONS?
  * The submissions service owns the contract: it defines what an eval job looks
@@ -47,10 +44,5 @@ public class RabbitConfig {
     @Bean
     public Binding evalBinding(Queue evalQueue, DirectExchange evalExchange) {
         return BindingBuilder.bind(evalQueue).to(evalExchange).with(ROUTING_KEY);
-    }
-
-    @Bean
-    public MessageConverter messageConverter() {
-        return new Jackson2JsonMessageConverter();
     }
 }

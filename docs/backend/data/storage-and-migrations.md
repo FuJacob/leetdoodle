@@ -46,7 +46,9 @@ through leetcode-service gRPC.
   - tracks submission lifecycle state + JSONB result
   - indexes by `user_id` and `problem_id`
 - `V3__create_outbox_table.sql`
-  - creates transactional outbox table for Debezium CDC
+  - creates transactional outbox table for async eval dispatch
+- `V4__add_outbox_dispatch_metadata.sql`
+  - adds publish/lease metadata so the submissions scheduler can claim and retry outbox rows safely
 
 ## Key Table Contracts
 
@@ -63,6 +65,9 @@ through leetcode-service gRPC.
   - `aggregate_id` (submission ID)
   - `event_type` (routing key semantics)
   - `payload` (EvalJob JSON)
+  - `published_at` (null until dispatch succeeds)
+  - `claim_token` / `claim_expires_at` (short lease used by the scheduler)
+  - `attempt_count` / `last_error` (retry visibility)
 
 ### `test_cases`
 

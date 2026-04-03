@@ -37,7 +37,7 @@ This folder is the backend living documentation for LeetDoodle.
 - [Javadoc and Teaching Style Guide](./standards/javadoc-and-teaching-style.md)
 
 ### ADRs
-- [ADR-0001: Transactional Outbox + Debezium + RabbitMQ](./adrs/ADR-0001-transactional-outbox-debezium-rabbitmq.md)
+- [ADR-0001: Transactional Outbox + Scheduled Dispatcher + RabbitMQ](./adrs/ADR-0001-transactional-outbox-debezium-rabbitmq.md)
 - [ADR-0002: Worker Direct DB Access](./adrs/ADR-0002-worker-direct-db-access.md)
 - [ADR-0003: Stateful In-Memory Collab Relay](./adrs/ADR-0003-stateful-collab-relay.md)
 - [ADR-0004: Worker Reads Eval Data via gRPC](./adrs/ADR-0004-worker-reads-eval-data-via-grpc.md)

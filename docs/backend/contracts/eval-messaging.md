@@ -1,11 +1,11 @@
-# Eval Messaging Contract (Outbox -> Debezium -> RabbitMQ -> Worker)
+# Eval Messaging Contract (Outbox -> Scheduler -> RabbitMQ -> Worker)
 
 This contract defines the asynchronous evaluation path.
 
 ## Message Producer and Consumer
 
 - Producer of business intent: `submissions` service (`SubmissionService` + `OutboxRepository`).
-- CDC publisher: Debezium Server with Outbox Event Router SMT.
+- Outbox publisher: `submissions` service scheduler (`OutboxDispatcher`).
 - Queue consumer/orchestrator: `worker` service (`EvalConsumer`).
 - Eval-data provider: `leetcode-service` gRPC (`ProblemGrpcService` on `:9090`).
 
@@ -40,7 +40,7 @@ Wire JSON shape:
 ## Delivery Semantics
 
 - Submission and outbox rows are inserted in one DB transaction.
-- Debezium reads committed outbox rows from WAL and publishes message.
+- A scheduled dispatcher claims committed outbox rows and publishes message.
 - Worker listener processes one message at a time (`prefetch=1`).
 - Worker fetches eval metadata + test cases via gRPC before container execution.
 - Listener acknowledges on successful return; failed handler path writes runtime error result.
@@ -51,7 +51,6 @@ Wire JSON shape:
 sequenceDiagram
     participant SUB as submissions
     participant PG as Postgres
-    participant DBZ as Debezium
     participant RMQ as RabbitMQ
     participant WRK as worker
     participant LEE as leetcode-service(gRPC)
@@ -59,8 +58,9 @@ sequenceDiagram
     SUB->>PG: INSERT submissions.submissions
     SUB->>PG: INSERT submissions.outbox
     PG-->>SUB: COMMIT
-    DBZ->>PG: consume WAL changes
-    DBZ->>RMQ: publish EvalJob (eval/eval)
+    SUB->>PG: claim unpublished outbox rows
+    SUB->>RMQ: publish EvalJob (eval/eval)
+    SUB->>PG: mark outbox row published
     WRK->>RMQ: @RabbitListener consume
     WRK->>LEE: GetProblemEval(problemId)
     WRK->>PG: update status/result
@@ -68,7 +68,7 @@ sequenceDiagram
 
 ## Failure and Recovery Notes
 
-- If Debezium is down, outbox rows remain persisted and are published when Debezium resumes.
-- If Debezium offset state is lost, old outbox rows may be republished; worker path should remain idempotency-safe at business level.
+- If the submissions dispatcher is down, outbox rows remain persisted and are published when polling resumes.
+- If the dispatcher crashes after publish but before marking the row published, the row may be retried; worker path should remain idempotency-safe at business level.
 - If worker throws unexpectedly, message can be re-delivered per RabbitMQ/Spring AMQP behavior.
 - If gRPC returns `NOT_FOUND` for missing eval metadata, worker writes `RUNTIME_ERROR` result and returns normally (no requeue loop).

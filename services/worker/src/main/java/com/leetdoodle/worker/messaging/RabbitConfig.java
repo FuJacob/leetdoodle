@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 /**
  * RabbitMQ topology and listener-converter wiring for worker job consumption.
  *
- * <p>Defines exchange/queue/binding names shared with Debezium and configures JSON
+ * <p>Defines exchange/queue/binding names shared with submissions and configures JSON
  * deserialization into {@link EvalJob}.
  */
 @Configuration
@@ -46,16 +46,14 @@ public class RabbitConfig {
     public MessageConverter messageConverter() {
         // WHY DefaultClassMapper?
         //
-        // Normally, when the submissions-service published EvalJob directly via
-        // Spring AMQP, it added a "__TypeId__" header to the message containing
-        // the fully-qualified class name. Jackson2JsonMessageConverter uses that
-        // header to know which Java class to deserialise the JSON into.
+        // The submissions-service dispatcher publishes the raw JSON payload
+        // from the outbox row instead of serialising a Java object through
+        // Spring AMQP. That keeps the wire contract stable and avoids coupling
+        // the worker to the producer's Java package names.
         //
-        // Debezium doesn't know anything about our Java classes — it just
-        // forwards the raw JSON payload from the outbox row. No "__TypeId__"
-        // header. Without a type hint, Jackson2JsonMessageConverter falls back to
-        // LinkedHashMap, and the @RabbitListener method gets a Map instead of
-        // an EvalJob — a ClassCastException at runtime.
+        // Because the JSON arrives without a "__TypeId__" header, the
+        // converter would otherwise fall back to LinkedHashMap. Registering a
+        // default type tells Spring AMQP that eval.queue always carries EvalJob.
         //
         // DefaultClassMapper lets us register a default type. When the header is
         // absent, the converter uses this type instead. Since every message on

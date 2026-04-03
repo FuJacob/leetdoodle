@@ -8,7 +8,7 @@ LeetDoodle combines three things that are usually separate:
 
 - A visual canvas for problem-solving workflows.
 - Multiplayer collaboration (presence, cursor, shared node state).
-- Production-style evaluation pipeline (transactional outbox, CDC, queue consumer, sandboxed execution).
+- Production-style evaluation pipeline (transactional outbox, scheduled dispatcher, queue consumer, sandboxed execution).
 
 The goal is to practice algorithm solving and systems design in one place.
 
@@ -18,7 +18,7 @@ The goal is to practice algorithm solving and systems design in one place.
 - Problem catalog with REST + internal gRPC eval-data API (`leetcode-service`).
 - Async submissions with transactional outbox (`submissions` service).
 - Queue-driven worker execution inside Docker sandboxes (`worker` service).
-- Debezium CDC from Postgres outbox to RabbitMQ.
+- In-process outbox dispatcher from Postgres to RabbitMQ.
 
 ## Architecture At A Glance
 
@@ -30,7 +30,6 @@ flowchart LR
   SUB[submissions :8082]
   WRK[worker :8083]
   PG[(Postgres)]
-  DBZ[Debezium]
   RMQ[(RabbitMQ)]
   DCK[(Docker Engine)]
 
@@ -41,8 +40,7 @@ flowchart LR
   LEE --> PG
   SUB --> PG
   SUB -->|outbox row| PG
-  DBZ -->|CDC| PG
-  DBZ --> RMQ
+  SUB -->|poll + publish| RMQ
   WRK --> RMQ
   WRK -->|gRPC GetProblemEval| LEE
   WRK --> PG
@@ -58,12 +56,11 @@ frontend/                React + Vite client
 services/
   collab/                WebSocket relay
   leetcode/              Problem APIs + gRPC eval metadata service
-  submissions/           Submission API + outbox writer
+  submissions/           Submission API + outbox writer/dispatcher
   worker/                Rabbit consumer + Docker eval runner
   grpc-api/              Shared protobuf/gRPC stubs
 infra/
-  compose/               Docker Compose stack (Postgres, RabbitMQ, Debezium)
-  debezium/conf/         Debezium server config
+  compose/               Docker Compose stack (Postgres, RabbitMQ)
 scripts/                 Dev lifecycle scripts
 docs/backend/            Architecture, contracts, ADRs, runbooks
 ```
@@ -73,7 +70,7 @@ docs/backend/            Architecture, contracts, ADRs, runbooks
 - Frontend: React 19, TypeScript, Vite, CodeMirror
 - Backend: Java 21+, Spring Boot 3.4, Maven, gRPC
 - Data: PostgreSQL 16
-- Messaging: RabbitMQ, Debezium Server (Outbox Router SMT)
+- Messaging: RabbitMQ, transactional outbox with Spring scheduler
 - Execution Isolation: Docker containers
 
 ## Prerequisites
@@ -88,21 +85,22 @@ docs/backend/            Architecture, contracts, ADRs, runbooks
 ### 1) Start backend services + infra
 
 ```bash
-./scripts/backend-up.sh
+./scripts/backend-restart.sh
 ```
 
 This script:
 
 - installs `services/grpc-api` to local Maven cache,
+- starts Docker infra (`postgres`, `rabbitmq`),
+- waits for core infra readiness before booting Spring apps,
 - runs clean Maven startup for each backend service by default (prevents stale `target/classes` issues),
-- starts Docker infra (`postgres`, `rabbitmq`, `debezium`),
 - starts Spring services (`collab`, `leetcode`, `submissions`, `worker`),
 - writes logs to `.logs/` and PIDs to `.run/`.
 
 If you need a faster startup and are okay skipping clean rebuilds:
 
 ```bash
-./scripts/backend-up.sh --no-clean
+./scripts/backend-restart.sh --no-clean
 ```
 
 ### 2) Start frontend
@@ -189,14 +187,6 @@ Useful flags:
 - `--keep-infra` (restart Spring services only, leave Docker infra up)
 - `--no-clean` (skip clean rebuild path)
 
-### Infra-only utilities
-
-```bash
-./scripts/dev-ps.sh
-./scripts/dev-logs.sh
-./scripts/dev-down.sh
-```
-
 ### Reset DB schemas (destructive)
 
 ```bash
@@ -212,7 +202,7 @@ Useful flags:
 
 ## Architecture Decisions (ADRs)
 
-- [ADR-0001: Transactional Outbox + Debezium + RabbitMQ](./docs/backend/adrs/ADR-0001-transactional-outbox-debezium-rabbitmq.md)
+- [ADR-0001: Transactional Outbox + Scheduled Dispatcher + RabbitMQ](./docs/backend/adrs/ADR-0001-transactional-outbox-debezium-rabbitmq.md)
 - [ADR-0002: Worker Direct DB Access](./docs/backend/adrs/ADR-0002-worker-direct-db-access.md)
 - [ADR-0003: Stateful In-Memory Collab Relay](./docs/backend/adrs/ADR-0003-stateful-collab-relay.md)
 - [ADR-0004: Worker Reads Eval Data via gRPC](./docs/backend/adrs/ADR-0004-worker-reads-eval-data-via-grpc.md)
@@ -220,7 +210,7 @@ Useful flags:
 ## Operational Notes
 
 - `worker` requires a running Docker daemon to execute submissions.
-- Debezium depends on Postgres logical replication (`wal_level=logical`) and publishes to RabbitMQ exchange `eval`.
+- `submissions` owns the outbox dispatcher and publishes to RabbitMQ exchange `eval`.
 - Submission status is asynchronous by design: client posts, then polls by `submissionId`.
 
 ## Contribution Guidelines

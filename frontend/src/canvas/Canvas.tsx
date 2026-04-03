@@ -102,6 +102,7 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
     onPointerDown: panPointerDown,
     onPointerMove: panPointerMove,
     onPointerUp: panPointerUp,
+    cancelPan,
   } = useCanvasTransform(viewportRef);
 
   const {
@@ -405,6 +406,7 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
     panPointerDown,
     panPointerMove,
     panPointerUp,
+    cancelPan,
     collabPointerMove,
     onLocalCursorModeChange: setLocalCursorMode,
   });

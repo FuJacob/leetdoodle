@@ -3,9 +3,36 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_DIR="$ROOT/.run"
-KEEP_INFRA="${1:-}"
+COMPOSE_FILE="$ROOT/infra/compose/docker-compose.dev.yml"
+KEEP_INFRA=0
 
 SERVICES=(collab leetcode submissions worker)
+
+usage() {
+  cat <<USAGE
+Usage: ./scripts/backend-down.sh [--keep-infra]
+
+Stops tracked Spring backend services.
+By default it also stops local infra containers from infra/compose/docker-compose.dev.yml.
+USAGE
+}
+
+for arg in "$@"; do
+  case "$arg" in
+    --keep-infra)
+      KEEP_INFRA=1
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $arg" >&2
+      usage >&2
+      exit 1
+      ;;
+  esac
+done
 
 stop_service() {
   local service="$1"
@@ -49,11 +76,11 @@ for service in "${SERVICES[@]}"; do
   stop_service "$service"
 done
 
-if [[ "$KEEP_INFRA" == "--keep-infra" ]]; then
+if [[ "$KEEP_INFRA" -eq 1 ]]; then
   echo "Keeping infra running (--keep-infra set)."
 else
   echo "Stopping infra..."
-  "$ROOT/scripts/dev-down.sh"
+  docker compose -f "$COMPOSE_FILE" down
 fi
 
 echo "Done."

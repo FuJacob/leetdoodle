@@ -1,7 +1,7 @@
-# ADR-0001: Transactional Outbox + Debezium + RabbitMQ for Eval Dispatch
+# ADR-0001: Transactional Outbox + Scheduled Dispatcher + RabbitMQ for Eval Dispatch
 
 - Status: Accepted
-- Date: 2026-03-30
+- Date: 2026-04-03
 
 ## Context
 
@@ -13,7 +13,7 @@ A naive dual-write (`INSERT submission` + `publish Rabbit message`) can lose job
 Use the transactional outbox pattern:
 
 - `submissions` inserts into `submissions.submissions` and `submissions.outbox` in one DB transaction.
-- Debezium tails Postgres WAL and publishes outbox payload to RabbitMQ (`eval` exchange, routing key `eval`).
+- `submissions` runs an in-process scheduled dispatcher that claims unpublished outbox rows and publishes them to RabbitMQ (`eval` exchange, routing key `eval`).
 - `worker` consumes from `eval.queue`.
 
 ## Consequences
@@ -21,14 +21,15 @@ Use the transactional outbox pattern:
 ### Positive
 
 - Eliminates dual-write inconsistency for submission creation.
-- Retries/recovery come from persisted outbox rows and WAL offsets.
+- Retries/recovery come from persisted outbox rows plus dispatcher claim leases.
 - Keeps submissions API latency low by avoiding synchronous evaluation.
+- Removes Debezium operational overhead and Postgres logical replication requirements.
 
 ### Negative
 
-- Adds Debezium operational complexity and another runtime component.
-- Offset/slot management must be monitored.
-- Potential duplicate publication in some recovery scenarios must be tolerated.
+- Dispatcher logic now lives in application code and must be maintained by us.
+- Potential duplicate publication in some crash windows must be tolerated.
+- Polling introduces a small dispatch delay compared with change-stream style forwarding.
 
 ## Alternatives Considered
 

@@ -16,7 +16,6 @@ flowchart TB
     subgraph DATA[Data and Messaging]
       PG[(PostgreSQL\nleetdoodle)]
       RMQ[(RabbitMQ\neval exchange)]
-      DBZ[Debezium Server\nOutbox Router]
     end
 
     DCK[(Docker Engine)]
@@ -28,8 +27,8 @@ flowchart TB
     LEE --> PG
     SUB --> PG
     SUB -->|outbox row in same tx| PG
-    DBZ -->|CDC from submissions.outbox| PG
-    DBZ -->|EvalJob JSON| RMQ
+    SUB -->|poll unpublished outbox rows| PG
+    SUB -->|EvalJob JSON| RMQ
     WRK -->|consume eval.queue| RMQ
     WRK -->|fetch eval metadata + test cases| LEE
     WRK -->|write results| PG
@@ -40,9 +39,8 @@ flowchart TB
 
 - **collab**: Room/session registry, fan-out relay, in-memory CRDT op-log for replay.
 - **leetcode-service**: Paginated/filterable problem APIs plus internal gRPC eval-data endpoint.
-- **submissions**: Accepts code submissions, persists row, persists outbox event in same transaction.
+- **submissions**: Accepts code submissions, persists row, persists outbox event in same transaction, and polls/publishes unpublished rows to RabbitMQ.
 - **worker**: Pulls eval jobs, calls leetcode gRPC for eval metadata, runs code in sandbox containers, writes status/result JSON back.
-- **Debezium**: Bridges DB outbox rows to RabbitMQ messages.
 
 ## Submission Evaluation Sequence
 
@@ -51,7 +49,6 @@ sequenceDiagram
     participant FE as Frontend
     participant SUB as submissions
     participant PG as PostgreSQL
-    participant DBZ as Debezium
     participant RMQ as RabbitMQ
     participant WRK as worker
     participant LEE as leetcode-service(gRPC)
@@ -62,8 +59,9 @@ sequenceDiagram
     PG-->>SUB: commit
     SUB-->>FE: { submissionId }
 
-    DBZ->>PG: read WAL (submissions.outbox)
-    DBZ->>RMQ: publish EvalJob (routing key: eval)
+    SUB->>PG: claim outbox batch
+    SUB->>RMQ: publish EvalJob (routing key: eval)
+    SUB->>PG: mark outbox row published
     WRK->>RMQ: consume eval.queue
     WRK->>LEE: GetProblemEval(problemId)
     WRK->>DCK: execute code in container

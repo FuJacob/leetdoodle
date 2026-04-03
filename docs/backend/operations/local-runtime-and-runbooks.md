@@ -6,7 +6,6 @@ Infrastructure stack (`infra/compose/docker-compose.dev.yml`):
 
 - PostgreSQL 16 (`localhost:5432`)
 - RabbitMQ management image (`localhost:5672`, UI `localhost:15672`)
-- Debezium Server (`debezium/server:2.7.3.Final`)
 
 Service ports:
 
@@ -18,17 +17,12 @@ Service ports:
 
 Helper scripts:
 
-- `./scripts/dev-up.sh`
-- `./scripts/dev-down.sh`
-- `./scripts/dev-logs.sh`
-- `./scripts/backend-up.sh`
+- `./scripts/backend-restart.sh`
 - `./scripts/backend-down.sh`
 
 ## Core Operational Dependencies
 
-- Debezium requires Postgres logical replication (`wal_level=logical`).
-- Debezium Postgres connector uses `pgoutput` logical decoding plugin.
-- Debezium offset file persists in `debezium-data` volume.
+- `submissions` scheduler must be running to drain `submissions.outbox`.
 - Rabbit queue `eval.queue` should exist before worker consumes (both services declare topology).
 - Worker requires Docker socket access (`worker.docker.host`).
 - Worker requires healthy gRPC channel to leetcode-service (`grpc.client.leetcode-service.*`).
@@ -36,7 +30,7 @@ Helper scripts:
 ## Runbook: Submission Stuck in `PENDING`
 
 1. Check `submissions.outbox` has a row for the submission.
-2. Check Debezium container logs for connector or sink errors.
+2. Check `submissions` logs for `outbox.publish.failed` or scheduler startup issues.
 3. Check RabbitMQ queue depth for `eval.queue`.
 4. Check worker logs for consume/runtime failures.
 5. Confirm worker can write to `submissions.submissions`.

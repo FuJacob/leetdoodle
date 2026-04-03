@@ -48,7 +48,7 @@ flowchart LR
 
 - `SubmissionController` handles submit + polling endpoints.
 - `SubmissionService.submit()` performs submission insert and outbox insert in one transaction.
-- `OutboxRepository` stores `EvalJob` payload for Debezium to publish.
+- `OutboxRepository` stores and claims `EvalJob` payloads for the scheduler to publish.
 
 ## worker
 

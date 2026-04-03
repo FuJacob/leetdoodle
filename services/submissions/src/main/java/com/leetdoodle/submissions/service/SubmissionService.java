@@ -43,16 +43,14 @@ public class SubmissionService {
      *
      * The fix: both writes (submission row + outbox row) happen inside ONE
      * database transaction. Either both commit or neither does — no partial state.
-     * Debezium then reads the outbox row out of the Postgres WAL *after* commit
-     * and publishes it to RabbitMQ. The publish only happens when the DB has
-     * already committed, so we can never have a job published without a submission
-     * row, and we can never have a submission row without a job eventually published.
+     * A background dispatcher later reads committed outbox rows and publishes them
+     * to RabbitMQ. The publish only happens after the DB commit, so we can never
+     * have a job published without a submission row.
      *
-     * WHAT IF DEBEZIUM IS DOWN?
-     * The outbox row sits in the table. When Debezium restarts, it replays from
-     * its last WAL offset (stored in the debezium-data volume) and picks up the
-     * missed rows. The submission stays PENDING until the worker processes it —
-     * no data is lost.
+     * WHAT IF RABBIT OR THE DISPATCHER IS DOWN?
+     * The outbox row sits in the table until a later poll succeeds. The
+     * submission stays PENDING until the worker processes it — no data is lost
+     * as long as the database commit succeeded.
      */
     @Transactional
     public UUID submit(int problemId, String userId, String language, String code) {

@@ -43,6 +43,6 @@ Next checks:
 - docker compose --project-name "${PROJECT_NAME}" -f "${COMPOSE_FILE}" logs -f
 
 Note:
-- postgres, rabbitmq, and debezium may be pulled from Docker Hub on first run.
+- postgres and rabbitmq may be pulled from Docker Hub on first run.
 - worker mounts /var/run/docker.sock, so this host should be dedicated to this stack.
 EOF

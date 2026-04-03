@@ -2,6 +2,7 @@ package com.leetdoodle.worker.messaging;
 
 import com.leetdoodle.grpc.GetProblemEvalResponse;
 import com.leetdoodle.worker.db.SubmissionResultWriter;
+import com.leetdoodle.worker.db.SubmissionStateReader;
 import com.leetdoodle.worker.docker.EvalRunner;
 import com.leetdoodle.worker.docker.EvalRunner.EvalResult;
 import com.leetdoodle.worker.docker.EvalRunner.EvalSpec;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * AMQP consumer that orchestrates one evaluation flow per queue message.
@@ -31,12 +33,15 @@ public class EvalConsumer {
     private final EvalRunner             runner;
     private final LeetcodeGrpcClient     grpcClient;
     private final SubmissionResultWriter resultWriter;
+    private final SubmissionStateReader  submissionStateReader;
 
     public EvalConsumer(EvalRunner runner, LeetcodeGrpcClient grpcClient,
-                        SubmissionResultWriter resultWriter) {
-        this.runner       = runner;
-        this.grpcClient   = grpcClient;
-        this.resultWriter = resultWriter;
+                        SubmissionResultWriter resultWriter,
+                        SubmissionStateReader submissionStateReader) {
+        this.runner                = runner;
+        this.grpcClient            = grpcClient;
+        this.resultWriter          = resultWriter;
+        this.submissionStateReader = submissionStateReader;
     }
 
     /**
@@ -53,6 +58,18 @@ public class EvalConsumer {
 
         if (!isValid(job)) {
             log.error("Dropping malformed eval job payload: {}", job);
+            return;
+        }
+
+        var submissionStatus = submissionStateReader.findStatus(job.submissionId());
+        if (submissionStatus.isEmpty()) {
+            log.warn("Dropping eval job for missing submission {}", job.submissionId());
+            return;
+        }
+
+        if (submissionStateReader.isTerminalStatus(submissionStatus.get())) {
+            log.info("Skipping duplicate eval job for completed submission {} (status={})",
+                job.submissionId(), submissionStatus.get());
             return;
         }
 
@@ -107,6 +124,11 @@ public class EvalConsumer {
     private boolean isValid(EvalJob job) {
         if (job == null) return false;
         if (job.submissionId() == null || job.submissionId().isBlank()) return false;
+        try {
+            UUID.fromString(job.submissionId());
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
         return job.problemId() > 0;
     }
 }

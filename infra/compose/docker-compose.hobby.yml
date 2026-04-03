@@ -5,11 +5,6 @@ services:
       POSTGRES_DB: leetdoodle
       POSTGRES_USER: leetdoodle
       POSTGRES_PASSWORD: leetdoodle
-    command: >
-      postgres
-      -c wal_level=logical
-      -c max_replication_slots=10
-      -c max_wal_senders=10
     ports:
       - "5432:5432"
     volumes:
@@ -132,20 +127,5 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  debezium:
-    image: debezium/server:2.7.3.Final
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      submissions:
-        condition: service_started
-    volumes:
-      - ../debezium/conf:/debezium/conf
-      - debezium-data:/debezium/data
-    restart: unless-stopped
-
 volumes:
   postgres-data:
-  debezium-data:
