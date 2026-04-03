@@ -3,6 +3,8 @@ const MODIFIER_KEYS = new Set(["control", "meta", "alt", "shift"]);
 function normalizeEventKey(event: KeyboardEvent): string {
   const raw = event.key;
   if (raw === " ") return "space";
+  if (raw === "=" || raw === "+") return "equal";
+  if (raw === "-" || raw === "_") return "minus";
   const lowered = raw.toLowerCase();
 
   if (lowered === "escape") return "escape";

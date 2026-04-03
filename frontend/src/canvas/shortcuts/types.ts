@@ -11,6 +11,8 @@ export interface ShortcutCommands {
   setTool: (tool: CanvasTool) => void;
   beginSpacePan: () => void;
   endSpacePan: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
 }
 
 export interface ShortcutContext {

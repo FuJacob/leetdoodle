@@ -11,6 +11,7 @@ interface Props {
     node: CanvasNode,
   ) => void;
   onUpdate: (id: string, patch: Partial<CanvasNode>) => void;
+  dragStyle: React.CSSProperties;
 }
 
 function panel(text: string | null) {
@@ -71,7 +72,12 @@ function updateResultsData(
   } as Partial<CanvasNode>);
 }
 
-export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props) {
+export function TestResultsNodeRenderer({
+  node,
+  onPointerDown,
+  onUpdate,
+  dragStyle,
+}: Props) {
   const { data } = node;
   const hasCases = data.cases.length > 0;
   const selected = data.cases[data.selectedCaseIndex] ?? null;
@@ -96,7 +102,13 @@ export function TestResultsNodeRenderer({ node, onPointerDown, onUpdate }: Props
   return (
     <div
       className="absolute flex cursor-grab select-none flex-col overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
-      style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
+      style={{
+        left: node.x,
+        top: node.y,
+        width: node.width,
+        height: node.height,
+        ...dragStyle,
+      }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
       {/* Header — mode tabs */}

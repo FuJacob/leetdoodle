@@ -5,6 +5,7 @@ import { ProblemNodeRenderer } from "../features/problem/ProblemNodeRenderer";
 import { CodeNodeRenderer } from "../features/code/CodeNodeRenderer";
 import { TestResultsNodeRenderer } from "../features/test-results/TestResultsNodeRenderer";
 import { DrawNodeRenderer } from "../features/draw/DrawNodeRenderer";
+import { type NodeDragVisual, getNodeDragStyle } from "./dragVisuals";
 
 interface Props {
   node: CanvasNode;
@@ -17,6 +18,7 @@ interface Props {
   onUpdate: (id: string, patch: Partial<CanvasNode>) => void;
   onSpawn: (type: NodeType, fromNodeId?: string) => string | undefined;
   onTextEdits: (nodeId: string, edits: TextEdit[]) => void;
+  dragVisual?: NodeDragVisual;
 }
 
 export function NodeRenderer({
@@ -27,7 +29,10 @@ export function NodeRenderer({
   onUpdate,
   onSpawn,
   onTextEdits,
+  dragVisual,
 }: Props) {
+  const dragStyle = getNodeDragStyle(dragVisual);
+
   switch (node.type) {
     case "note":
       return (
@@ -35,6 +40,7 @@ export function NodeRenderer({
           node={node}
           onPointerDown={onPointerDown}
           onTextEdits={onTextEdits}
+          dragStyle={dragStyle}
         />
       );
     case "problem":
@@ -43,6 +49,7 @@ export function NodeRenderer({
           node={node}
           onPointerDown={onPointerDown}
           onUpdate={onUpdate}
+          dragStyle={dragStyle}
         />
       );
     case "code":
@@ -55,6 +62,7 @@ export function NodeRenderer({
           onUpdate={onUpdate}
           onSpawn={onSpawn}
           onTextEdits={onTextEdits}
+          dragStyle={dragStyle}
         />
       );
     case "test-results":
@@ -63,6 +71,7 @@ export function NodeRenderer({
           node={node}
           onPointerDown={onPointerDown}
           onUpdate={onUpdate}
+          dragStyle={dragStyle}
         />
       );
     case "draw":
@@ -71,6 +80,7 @@ export function NodeRenderer({
           node={node}
           onPointerDown={onPointerDown}
           onUpdate={onUpdate}
+          dragStyle={dragStyle}
         />
       );
   }

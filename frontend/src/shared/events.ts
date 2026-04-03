@@ -16,6 +16,8 @@ export type CanvasOutboundEvent =
   | { type: "cursor_move"; userId: string; x: number; y: number }
   | { type: "node_create"; node: CanvasNode }
   | { type: "node_move"; nodeId: string; x: number; y: number }
+  | { type: "node_drag_start"; nodeIds: string[] }
+  | { type: "node_drag_end" }
   | { type: "node_update"; nodeId: string; patch: Partial<CanvasNode> }
   | { type: "node_delete"; nodeId: string }
   | { type: "edge_create"; edge: Edge }
@@ -35,6 +37,8 @@ export type CanvasInboundEvent =
   | { type: "cursor_move"; userId: string; x: number; y: number }
   | { type: "node_create"; userId: string; node: CanvasNode }
   | { type: "node_move"; userId: string; nodeId: string; x: number; y: number }
+  | { type: "node_drag_start"; userId: string; nodeIds: string[] }
+  | { type: "node_drag_end"; userId: string }
   | {
       type: "node_update";
       userId: string;
@@ -58,7 +62,9 @@ export type CanvasInboundEvent =
 
 export interface CanvasEventHandlers {
   onNodeCreate?: (node: CanvasNode) => void;
-  onNodeMove?: (nodeId: string, x: number, y: number) => void;
+  onNodeMove?: (userId: string, nodeId: string, x: number, y: number) => void;
+  onNodeDragStart?: (userId: string, nodeIds: string[]) => void;
+  onNodeDragEnd?: (userId: string) => void;
   onNodeUpdate?: (nodeId: string, patch: Partial<CanvasNode>) => void;
   onNodeDelete?: (nodeId: string) => void;
   onEdgeCreate?: (edge: Edge) => void;

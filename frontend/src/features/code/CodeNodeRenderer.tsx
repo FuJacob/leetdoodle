@@ -37,6 +37,7 @@ interface Props {
   onUpdate: (id: string, patch: Partial<CanvasNode>) => void;
   onSpawn: (type: NodeType, fromNodeId?: string) => string | undefined;
   onTextEdits: (nodeId: string, edits: TextEdit[]) => void;
+  dragStyle: React.CSSProperties;
 }
 
 function getLanguageExtension() {
@@ -90,6 +91,7 @@ export function CodeNodeRenderer({
   onUpdate,
   onSpawn,
   onTextEdits,
+  dragStyle,
 }: Props) {
   const { theme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -309,7 +311,13 @@ export function CodeNodeRenderer({
   return (
     <div
       className="absolute flex cursor-grab select-none flex-col overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
-      style={{ left: node.x, top: node.y, width: node.width, height: node.height }}
+      style={{
+        left: node.x,
+        top: node.y,
+        width: node.width,
+        height: node.height,
+        ...dragStyle,
+      }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
       <div className="flex items-center justify-between border-b border-(--lc-border-default) p-2">

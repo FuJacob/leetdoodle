@@ -9,6 +9,7 @@ interface Props {
     node: CanvasNode,
   ) => void;
   onTextEdits: (nodeId: string, edits: TextEdit[]) => void;
+  dragStyle: React.CSSProperties;
 }
 
 /**
@@ -40,7 +41,12 @@ function diffToSingleEdit(prev: string, next: string): TextEdit[] {
   }];
 }
 
-export function NoteNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
+export function NoteNodeRenderer({
+  node,
+  onPointerDown,
+  onTextEdits,
+  dragStyle,
+}: Props) {
   const lastTextRef = useRef(node.data.content);
 
   useEffect(() => {
@@ -55,6 +61,7 @@ export function NoteNodeRenderer({ node, onPointerDown, onTextEdits }: Props) {
         top: node.y,
         width: node.width,
         height: node.height,
+        ...dragStyle,
       }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >

@@ -17,6 +17,10 @@ interface Anchor {
   normal: Point;
 }
 
+const EDGE_STROKE_WIDTH = 2.75;
+const EDGE_HALO_WIDTH = 6.5;
+const EDGE_CAP_RADIUS = 4.5;
+
 function getNodeCenter(node: CanvasNode): Point {
   return {
     x: node.x + node.width / 2,
@@ -114,13 +118,38 @@ export function EdgesOverlay({ nodes, edges, transform }: Props) {
         const pathData = `M ${fromAnchor.x} ${fromAnchor.y} C ${control1.x} ${control1.y}, ${control2.x} ${control2.y}, ${toAnchor.x} ${toAnchor.y}`;
 
         return (
-          <path
-            key={edge.id}
-            d={pathData}
-            stroke="#ffffff"
-            strokeWidth={1}
-            fill="none"
-          />
+          <g key={edge.id}>
+            <path
+              d={pathData}
+              stroke="var(--lc-edge-shadow)"
+              strokeWidth={EDGE_HALO_WIDTH}
+              strokeLinecap="round"
+              fill="none"
+            />
+            <path
+              d={pathData}
+              stroke="var(--lc-edge-stroke)"
+              strokeWidth={EDGE_STROKE_WIDTH}
+              strokeLinecap="round"
+              fill="none"
+            />
+            <circle
+              cx={fromAnchor.x}
+              cy={fromAnchor.y}
+              r={EDGE_CAP_RADIUS}
+              fill="var(--lc-edge-cap-fill)"
+              stroke="var(--lc-edge-stroke)"
+              strokeWidth={2}
+            />
+            <circle
+              cx={toAnchor.x}
+              cy={toAnchor.y}
+              r={EDGE_CAP_RADIUS}
+              fill="var(--lc-edge-cap-fill)"
+              stroke="var(--lc-edge-stroke)"
+              strokeWidth={2}
+            />
+          </g>
         );
       })}
     </svg>

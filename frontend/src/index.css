@@ -49,6 +49,10 @@
   --lc-selection-local: var(--lc-accent-500);
   --lc-selection-remote-fallback: var(--lc-neutral-500);
 
+  --lc-edge-stroke: rgba(108, 90, 72, 0.72);
+  --lc-edge-shadow: rgba(245, 239, 228, 0.9);
+  --lc-edge-cap-fill: var(--lc-surface-1);
+
   --lc-editor-bg: var(--lc-surface-2);
   --lc-editor-gutter: var(--lc-surface-2);
   --lc-editor-active-line: var(--lc-surface-3);
@@ -106,6 +110,10 @@
   --lc-selection-local: var(--lc-accent-500);
   --lc-selection-remote-fallback: var(--lc-neutral-500);
 
+  --lc-edge-stroke: rgba(227, 213, 199, 0.68);
+  --lc-edge-shadow: rgba(23, 18, 15, 0.82);
+  --lc-edge-cap-fill: var(--lc-surface-1);
+
   --lc-editor-bg: var(--lc-surface-1);
   --lc-editor-gutter: var(--lc-surface-1);
   --lc-editor-active-line: var(--lc-surface-2);
@@ -126,4 +134,11 @@ body,
 .lc-canvas-cursorless,
 .lc-canvas-cursorless * {
   cursor: none !important;
+}
+
+body.lc-is-panning,
+body.lc-is-panning * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }

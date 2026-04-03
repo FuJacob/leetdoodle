@@ -13,6 +13,13 @@ interface DrawToolControllerDeps {
   onCommitStroke: (points: Array<[number, number]>, thickness: number) => void;
 }
 
+/**
+ * Implements the draw tool's pointer workflow and lightweight live preview.
+ *
+ * The hook captures pointer movement into world-space points, streams batched
+ * stroke updates for remote collaborators, renders the local temporary polyline,
+ * and commits a finished stroke back into the canvas document.
+ */
 export function useDrawToolController({
   viewportRef,
   transformRef,

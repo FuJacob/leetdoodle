@@ -53,6 +53,12 @@ function normalizeRect(
   };
 }
 
+/**
+ * Implements the select tool's canvas-level interaction model.
+ *
+ * It coordinates marquee selection on the background and delegates node drags
+ * to the node-drag hook when the pointer starts on an existing node.
+ */
 export function useSelectToolController({
   selectNodes,
   dragPointerDown,

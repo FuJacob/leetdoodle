@@ -41,6 +41,8 @@ Primary outbound events (from `frontend/src/shared/events.ts`):
 - `cursor_move` (`userId`, `x`, `y`)
 - `node_create` (`node`)
 - `node_move` (`nodeId`, `x`, `y`)
+- `node_drag_start` (`nodeIds[]`)
+- `node_drag_end`
 - `node_update` (`nodeId`, `patch`)
 - `node_delete` (`nodeId`)
 - `edge_create` (`edge`)
@@ -56,6 +58,7 @@ Primary outbound events (from `frontend/src/shared/events.ts`):
 - `presence_snapshot` (`users[]`, each item: `{ id, color }`)
 - `user_join` (`user`, shape: `{ id, color }`)
 - mirrored relay events for cursor/node/edge/draw updates with sender `userId`
+- mirrored relay events include drag lifecycle (`node_drag_start`, `node_drag_end`)
 - `user_leave` (`userId`, tab/session participant id)
 - `sync_response` (`docId`, `ops[]`)
 

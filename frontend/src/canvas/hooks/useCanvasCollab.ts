@@ -9,7 +9,7 @@ import type {
 import { screenToWorld } from "../utils/coordinates";
 import { COLLAB_WS_URL } from "../../shared/config/env";
 
-const CURSOR_MOVE_UPDATE_INTERVAL = 10;
+const CURSOR_MOVE_UPDATE_INTERVAL = 17;
 
 export interface RemoteCursor {
   userId: string;
@@ -47,6 +47,10 @@ export function useCanvasCollab(
   const handlersRef = useRef(handlers);
 
   useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
+
+  useEffect(() => {
     const ws = new WebSocket(COLLAB_WS_URL);
 
     ws.onopen = () => {
@@ -80,7 +84,8 @@ export function useCanvasCollab(
               .map((user) => ({
                 ...user,
                 displayName:
-                  typeof user.displayName === "string" && user.displayName.trim().length > 0
+                  typeof user.displayName === "string" &&
+                  user.displayName.trim().length > 0
                     ? user.displayName
                     : user.id,
               }))
@@ -134,7 +139,20 @@ export function useCanvasCollab(
           break;
 
         case "node_move":
-          handlersRef.current.onNodeMove?.(msg.nodeId, msg.x, msg.y);
+          handlersRef.current.onNodeMove?.(
+            msg.userId,
+            msg.nodeId,
+            msg.x,
+            msg.y,
+          );
+          break;
+
+        case "node_drag_start":
+          handlersRef.current.onNodeDragStart?.(msg.userId, msg.nodeIds);
+          break;
+
+        case "node_drag_end":
+          handlersRef.current.onNodeDragEnd?.(msg.userId);
           break;
 
         case "node_update":

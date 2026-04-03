@@ -18,12 +18,14 @@ interface Props {
     node: CanvasNode,
   ) => void;
   onUpdate: (id: string, patch: Partial<CanvasNode>) => void;
+  dragStyle: React.CSSProperties;
 }
 
 export function ProblemNodeRenderer({
   node,
   onPointerDown,
   onUpdate,
+  dragStyle,
 }: Props) {
   const [url, setUrl] = useState("https://leetcode.com/problems/two-sum/");
   const [loading, setLoading] = useState(false);
@@ -104,6 +106,7 @@ export function ProblemNodeRenderer({
           top: node.y,
           width: node.width,
           height: node.height,
+          ...dragStyle,
         }}
         onPointerDown={(e) => onPointerDown(e, node)}
       >
@@ -146,7 +149,7 @@ export function ProblemNodeRenderer({
     <div
       ref={loadedRootRef}
       className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
-      style={{ left: node.x, top: node.y, width: node.width }}
+      style={{ left: node.x, top: node.y, width: node.width, ...dragStyle }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
       <div className="flex items-baseline justify-between border-b border-(--lc-border-default) px-3 py-2">

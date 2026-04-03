@@ -15,7 +15,7 @@ export interface UseNodeContentSizeSyncOptions {
 }
 
 /**
- * Keeps canvas-node dimensions in sync with rendered DOM size.
+ * Keeps a persisted canvas node's width and height in sync with measured DOM size.
  *
  * Uses offsetWidth/offsetHeight so measurements remain stable under CSS transforms
  * (e.g. canvas zoom scale), then emits only when dimensions changed materially.

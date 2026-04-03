@@ -13,7 +13,11 @@ interface Params {
 }
 
 /**
- * Encapsulates all CRDT text-sync concerns away from Canvas UI orchestration.
+ * Encapsulates collaborative text-document synchronization for note and code nodes.
+ *
+ * The hook lazily creates per-node CRDT documents, converts local text edits
+ * into outbound ops, applies remote ops and sync responses, and keeps rendered
+ * node text in sync with the current CRDT state.
  *
  * Why keep a nodesRef internally?
  * React state updates rerender components, but async callbacks (WebSocket,
