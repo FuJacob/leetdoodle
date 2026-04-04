@@ -21,6 +21,7 @@ import type { LocalCursorMode } from "./types";
 import { useCanvasShortcutContainer } from "./shortcuts/useCanvasShortcutContainer";
 import type { NodeDragVisual } from "./dragVisuals";
 import { useCanvasDocument } from "./model/useCanvasDocument";
+import { createCursorPresenceStore } from "./presence/cursorPresenceStore";
 
 interface CanvasProps {
   canvasId: string;
@@ -44,6 +45,7 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
   const GRID_DOT_RADIUS = 1.35;
   const viewportRef = useRef<HTMLDivElement>(null);
   const sendRef = useRef<((event: CanvasOutboundEvent) => void) | null>(null);
+  const cursorStore = useMemo(() => createCursorPresenceStore(), []);
   const [remoteSelections, setRemoteSelections] = useState<
     Map<string, Set<string>>
   >(new Map());
@@ -167,7 +169,6 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
   );
 
   const {
-    cursors,
     users,
     remoteStrokes,
     send,
@@ -178,6 +179,7 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
     displayName,
     viewportRef,
     transformRef,
+    cursorStore,
     collabHandlers,
   );
 
@@ -353,7 +355,7 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
       {activeToolController.layers}
 
       <CursorOverlay
-        cursors={cursors}
+        cursorStore={cursorStore}
         users={users}
         transform={transform}
         viewportRef={viewportRef}

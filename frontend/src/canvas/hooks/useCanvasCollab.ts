@@ -1,38 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Transform } from "../types";
 import type {
-  CanvasPresenceUser,
   CanvasEventHandlers,
   CanvasInboundEvent,
   CanvasOutboundEvent,
 } from "../../shared/events";
 import { screenToWorld } from "../utils/coordinates";
 import { COLLAB_WS_URL } from "../../shared/config/env";
+import type { CursorPresenceStore } from "../presence/cursorPresenceStore";
+import type { CollabUser, RemoteStroke } from "../presence/types";
 
 const CURSOR_MOVE_UPDATE_INTERVAL = 17;
 
-export interface RemoteCursor {
-  userId: string;
-  x: number; // world-space
-  y: number;
-}
-
-export type CollabUser = CanvasPresenceUser;
-
-export interface RemoteStroke {
-  points: Array<[number, number]>;
-  thickness: number;
-}
-
+/**
+ * Owns the shared canvas WebSocket session and routes inbound events by
+ * concern: document changes stay in React state/callbacks, while high-frequency
+ * remote cursor updates are written into an external presence store.
+ */
 export function useCanvasCollab(
   canvasId: string,
   userId: string,
   displayName: string,
   viewportRef: React.RefObject<HTMLDivElement | null>,
   transformRef: React.RefObject<Transform>,
+  cursorStore: CursorPresenceStore,
   handlers: CanvasEventHandlers = {},
 ) {
-  const [cursors, setCursors] = useState<Map<string, RemoteCursor>>(new Map());
   const [users, setUsers] = useState<CollabUser[]>([]);
   // Active in-progress strokes from remote users, keyed by userId.
   // Points are world-space, accumulated as draw_points batches arrive.
@@ -56,7 +49,7 @@ export function useCanvasCollab(
     ws.onopen = () => {
       // Reset local collab state when a fresh socket session is established.
       setUsers([]);
-      setCursors(new Map());
+      cursorStore.clear();
       setRemoteStrokes(new Map());
 
       // Assign only when open so stale constructing sockets cannot clobber ref.
@@ -125,13 +118,11 @@ export function useCanvasCollab(
           break;
 
         case "cursor_move":
-          setCursors((prev) =>
-            new Map(prev).set(msg.userId, {
-              userId: msg.userId,
-              x: msg.x,
-              y: msg.y,
-            }),
-          );
+          cursorStore.upsertCursor({
+            userId: msg.userId,
+            x: msg.x,
+            y: msg.y,
+          });
           break;
 
         case "node_create":
@@ -197,11 +188,7 @@ export function useCanvasCollab(
 
         case "user_leave":
           setUsers((prev) => prev.filter((user) => user.id !== msg.userId));
-          setCursors((prev) => {
-            const next = new Map(prev);
-            next.delete(msg.userId);
-            return next;
-          });
+          cursorStore.removeCursor(msg.userId);
           setRemoteStrokes((prev) => {
             const next = new Map(prev);
             next.delete(msg.userId);
@@ -225,7 +212,7 @@ export function useCanvasCollab(
       if (wsRef.current === ws) wsRef.current = null;
 
       setUsers([]);
-      setCursors(new Map());
+      cursorStore.clear();
       setRemoteStrokes(new Map());
     };
 
@@ -234,9 +221,10 @@ export function useCanvasCollab(
     };
 
     return () => {
+      cursorStore.clear();
       ws.close();
     };
-  }, [canvasId, userId, displayName]);
+  }, [canvasId, userId, displayName, cursorStore]);
 
   const send = useCallback(
     (event: CanvasOutboundEvent) => {
@@ -270,5 +258,5 @@ export function useCanvasCollab(
     [userId, viewportRef, transformRef, send],
   );
 
-  return { cursors, users, remoteStrokes, send, onPointerMove };
+  return { users, remoteStrokes, send, onPointerMove };
 }

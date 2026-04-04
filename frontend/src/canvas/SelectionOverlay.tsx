@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { IconCopy, IconPlus, IconTrash } from "@tabler/icons-react";
 import type { CanvasNode, NodeType } from "../shared/nodes";
-import type { CollabUser } from "./hooks/useCanvasCollab";
+import type { CollabUser } from "./presence/types";
 import type { LocalCursorMode, Transform } from "./types";
 import {
   CONTROL_ICON_SIZE,

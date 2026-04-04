@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { CollabUser, RemoteStroke } from "./hooks/useCanvasCollab";
+import type { CollabUser, RemoteStroke } from "./presence/types";
 import type { Transform } from "./types";
 
 interface Props {

@@ -1,17 +1,22 @@
 import { type RefObject, useEffect, useMemo, useState } from "react";
-import type { CollabUser, RemoteCursor } from "./hooks/useCanvasCollab";
 import type { LocalCursorMode, Transform } from "./types";
 import resizeNeswCursorImage from "../assets/Cursor/Resize/North East South West.png";
 import resizeNwseCursorImage from "../assets/Cursor/Resize/North West South East.png";
 import grabCursorImage from "../assets/Cursor/Grab/Grab.png";
 import grabbingCursorImage from "../assets/Cursor/Grab/Grabbing.png";
+import {
+  useRemoteCursors,
+  type CursorPresenceStore,
+} from "./presence/cursorPresenceStore";
+import type { CollabUser } from "./presence/types";
+
 interface LocalCursor {
   x: number;
   y: number;
 }
 
 interface Props {
-  cursors: Map<string, RemoteCursor>;
+  cursorStore: CursorPresenceStore;
   users: CollabUser[];
   transform: Transform;
   viewportRef: RefObject<HTMLDivElement | null>;
@@ -88,13 +93,14 @@ function CursorGlyph({
 }
 
 export function CursorOverlay({
-  cursors,
+  cursorStore,
   users,
   transform,
   viewportRef,
   localCursorMode,
 }: Props) {
   const [localCursor, setLocalCursor] = useState<LocalCursor | null>(null);
+  const cursors = useRemoteCursors(cursorStore);
 
   useEffect(() => {
     const viewport = viewportRef.current;

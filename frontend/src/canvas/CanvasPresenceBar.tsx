@@ -1,4 +1,4 @@
-import type { CollabUser } from "./hooks/useCanvasCollab";
+import type { CollabUser } from "./presence/types";
 
 interface CanvasPresenceBarProps {
   users: CollabUser[];

@@ -59,7 +59,6 @@ export function getNodeDragStyle(
 
   const magnitude = Math.hypot(dragVisual.dx, dragVisual.dy);
   const liftPx = clamp(7 + magnitude * 3.5, 7, 13);
-  const rotateDeg = clamp(dragVisual.dx * 20, -5, 5);
   const tiltDeg = clamp(-dragVisual.dy * 14, -3, 3);
   const scale = 1.012 + Math.min(magnitude * 0.01, 0.018);
   const accentGlow = colorWithAlpha(
@@ -69,7 +68,7 @@ export function getNodeDragStyle(
 
   return {
     ...baseStyle,
-    transform: `translate3d(0, ${-liftPx}px, 0) rotate(${rotateDeg}deg) rotateX(${tiltDeg}deg) scale(${scale})`,
+    transform: `translate3d(0, ${-liftPx}px, 0) rotateX(${tiltDeg}deg) scale(${scale})`,
     boxShadow: `0 24px 48px rgba(15, 23, 42, 0.16), 0 10px 20px rgba(15, 23, 42, 0.10), 0 0 0 1px ${accentGlow}`,
     filter: "saturate(1.03)",
     zIndex: 40,
