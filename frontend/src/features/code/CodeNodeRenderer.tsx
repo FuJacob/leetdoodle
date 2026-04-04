@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef } from "react";
 import { EditorView, basicSetup } from "codemirror";
+import { indentWithTab } from "@codemirror/commands";
+import {
+  HighlightStyle,
+  indentUnit,
+  syntaxHighlighting,
+} from "@codemirror/language";
 import { python } from "@codemirror/lang-python";
+import { tags } from "@lezer/highlight";
+import { keymap } from "@codemirror/view";
 import type { TextEdit } from "../../shared/crdt";
 import { useTheme } from "../../theme/useTheme";
 import type {
@@ -50,6 +58,20 @@ function cssVar(name: string, fallback: string): string {
     .getPropertyValue(name)
     .trim();
   return value.length > 0 ? value : fallback;
+}
+
+function createCodeHighlightStyle() {
+  return HighlightStyle.define([
+    { tag: [tags.keyword, tags.controlKeyword], color: cssVar("--lc-editor-keyword", "#0f5bd8") },
+    { tag: [tags.comment, tags.lineComment, tags.blockComment], color: cssVar("--lc-editor-comment", "#7a6857"), fontStyle: "italic" },
+    { tag: [tags.string, tags.special(tags.string)], color: cssVar("--lc-editor-string", "#b45309") },
+    { tag: [tags.number, tags.integer, tags.float], color: cssVar("--lc-editor-number", "#b91c1c") },
+    { tag: [tags.bool, tags.null, tags.atom], color: cssVar("--lc-editor-constant", "#7c2d12") },
+    { tag: [tags.function(tags.variableName), tags.labelName], color: cssVar("--lc-editor-function", "#0f766e") },
+    { tag: [tags.definition(tags.variableName), tags.variableName], color: cssVar("--lc-editor-variable", "#18181b") },
+    { tag: [tags.typeName, tags.className], color: cssVar("--lc-editor-type", "#8b5e00") },
+    { tag: [tags.operator, tags.punctuation, tags.separator], color: cssVar("--lc-editor-operator", "#57534e") },
+  ]);
 }
 
 function isProblemNode(node: CanvasNode | undefined): node is ProblemNode {
@@ -147,12 +169,19 @@ export function CodeNodeRenderer({
     const editorMuted = cssVar("--lc-text-muted", "#71717a");
     const editorActiveLine = cssVar("--lc-editor-active-line", "#27272a");
     const editorCaret = cssVar("--lc-editor-caret", "#e4e4e7");
+    const editorSelection = cssVar("--lc-editor-selection", "rgba(58, 124, 242, 0.22)");
+    const editorPanel = cssVar("--lc-surface-1", "#ffffff");
+    const highlightStyle = createCodeHighlightStyle();
+    const isDarkTheme = theme === "dark";
 
     const view = new EditorView({
       doc: node.data.content,
       extensions: [
+        keymap.of([indentWithTab]),
         basicSetup,
         getLanguageExtension(),
+        indentUnit.of("    "),
+        syntaxHighlighting(highlightStyle),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged) return;
           if (applyingRemoteRef.current) return;
@@ -174,18 +203,31 @@ export function CodeNodeRenderer({
           }
         }),
         EditorView.theme({
-          "&": { backgroundColor: editorBackground, color: editorText, height: "100%" },
+          "&": {
+            backgroundColor: editorBackground,
+            color: editorText,
+            height: "100%",
+          },
+          ".cm-editor": { height: "100%" },
           ".cm-content": { caretColor: editorCaret, whiteSpace: "pre", minHeight: "100%" },
           ".cm-cursor": { borderLeftColor: editorCaret },
           ".cm-scroller": { overflow: "auto" },
+          ".cm-focused": { outline: "none" },
           ".cm-gutters": {
             backgroundColor: editorGutter,
             color: editorMuted,
             border: "none",
           },
+          ".cm-selectionBackground, ::selection": {
+            backgroundColor: editorSelection,
+          },
           ".cm-activeLineGutter": { backgroundColor: editorActiveLine },
           ".cm-activeLine": { backgroundColor: editorActiveLine },
-        }),
+          ".cm-panels": {
+            backgroundColor: editorPanel,
+            color: editorText,
+          },
+        }, { dark: isDarkTheme }),
       ],
       parent: containerRef.current,
     });

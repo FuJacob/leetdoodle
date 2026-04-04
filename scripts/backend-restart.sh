@@ -16,10 +16,10 @@ usage() {
 Usage: ./scripts/backend-restart.sh [--keep-infra] [--clean|--no-clean]
 
 Core workflow:
-- installs shared Maven artifacts needed by backend services
+- builds all backend jars in one Maven reactor pass
 - starts local infra (postgres, rabbitmq)
 - waits for required infra readiness
-- starts Spring backend services and tracks PIDs/logs
+- starts compiled Spring backend jars and tracks PIDs/logs
 USAGE
 }
 
@@ -54,13 +54,13 @@ else
   "$ROOT/scripts/backend-down.sh"
 fi
 
+BUILD_GOALS=(package -DskipTests)
 if [[ "$CLEAN_BUILD" -eq 1 ]]; then
-  echo "Installing shared backend artifacts with a clean Maven build..."
-  mvn -f "$ROOT/services/pom.xml" -pl grpc-api -am clean install -DskipTests
-else
-  echo "Installing shared backend artifacts..."
-  mvn -f "$ROOT/services/pom.xml" -pl grpc-api -am install -DskipTests
+  BUILD_GOALS=(clean "${BUILD_GOALS[@]}")
 fi
+
+echo "Building backend jars..."
+mvn -f "$ROOT/services/pom.xml" "${BUILD_GOALS[@]}"
 
 echo "Starting infra stack..."
 docker compose -f "$COMPOSE_FILE" up -d
@@ -118,22 +118,31 @@ start_service() {
   local service_dir="$ROOT/services/$service"
   local pid_file="$RUN_DIR/$service.pid"
   local log_file="$LOG_DIR/$service.log"
+  local jar_file
 
   if [[ ! -d "$service_dir" ]]; then
     echo "Skipping $service (missing directory: $service_dir)"
     return
   fi
 
+  jar_file="$(
+    find "$service_dir/target" -maxdepth 1 -type f -name '*.jar' \
+      ! -name '*.jar.original' \
+      ! -name 'original-*.jar' \
+      | head -n 1
+  )"
+
+  if [[ -z "$jar_file" ]]; then
+    echo "No runnable jar found for $service under $service_dir/target" >&2
+    exit 1
+  fi
+
   rm -f "$pid_file"
 
-  echo "Starting $service..."
+  echo "Starting $service from $(basename "$jar_file")..."
   (
     cd "$service_dir"
-    if [[ "$CLEAN_BUILD" -eq 1 ]]; then
-      nohup mvn clean spring-boot:run -DskipTests >"$log_file" 2>&1 &
-    else
-      nohup mvn spring-boot:run -DskipTests >"$log_file" 2>&1 &
-    fi
+    nohup java -jar "$jar_file" >"$log_file" 2>&1 &
     echo $! >"$pid_file"
   )
 

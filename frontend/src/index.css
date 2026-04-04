@@ -57,6 +57,16 @@
   --lc-editor-gutter: var(--lc-surface-2);
   --lc-editor-active-line: var(--lc-surface-3);
   --lc-editor-caret: var(--lc-text-primary);
+  --lc-editor-selection: rgba(58, 124, 242, 0.18);
+  --lc-editor-keyword: #0f5bd8;
+  --lc-editor-comment: #7a6857;
+  --lc-editor-string: #b45309;
+  --lc-editor-number: #b91c1c;
+  --lc-editor-constant: #9a3412;
+  --lc-editor-function: #0f766e;
+  --lc-editor-variable: var(--lc-text-primary);
+  --lc-editor-type: #8b5e00;
+  --lc-editor-operator: #57534e;
 
   --lc-draw-stroke: var(--lc-text-primary);
 }
@@ -118,6 +128,16 @@
   --lc-editor-gutter: var(--lc-surface-1);
   --lc-editor-active-line: var(--lc-surface-2);
   --lc-editor-caret: var(--lc-text-primary);
+  --lc-editor-selection: rgba(138, 180, 255, 0.24);
+  --lc-editor-keyword: #9fc3ff;
+  --lc-editor-comment: #a89480;
+  --lc-editor-string: #f4bf75;
+  --lc-editor-number: #ff9b8f;
+  --lc-editor-constant: #ffb7b0;
+  --lc-editor-function: #7ae2c7;
+  --lc-editor-variable: var(--lc-text-primary);
+  --lc-editor-type: #f3d17a;
+  --lc-editor-operator: #d7c8ba;
 
   --lc-draw-stroke: var(--lc-text-primary);
 }
