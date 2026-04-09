@@ -10,16 +10,19 @@ WAIT_HEALTH_SERVICES=(postgres rabbitmq)
 
 CLEAN_BUILD=1
 KEEP_INFRA=0
+WIPE_DB=0
 
 usage() {
   cat <<USAGE
-Usage: ./scripts/backend-restart.sh [--keep-infra] [--clean|--no-clean]
+Usage: ./scripts/backend-restart.sh [--keep-infra] [--wipe-db] [--clean|--no-clean]
 
 Core workflow:
 - builds all backend jars in one Maven reactor pass
 - starts local infra (postgres, rabbitmq)
 - waits for required infra readiness
 - starts compiled Spring backend jars and tracks PIDs/logs
+
+Use --wipe-db to remove the local Postgres volume before restarting.
 USAGE
 }
 
@@ -27,6 +30,9 @@ for arg in "$@"; do
   case "$arg" in
     --keep-infra)
       KEEP_INFRA=1
+      ;;
+    --wipe-db)
+      WIPE_DB=1
       ;;
     --clean)
       CLEAN_BUILD=1
@@ -46,12 +52,22 @@ for arg in "$@"; do
   esac
 done
 
+if [[ "$KEEP_INFRA" -eq 1 && "$WIPE_DB" -eq 1 ]]; then
+  echo "--keep-infra and --wipe-db cannot be used together." >&2
+  usage >&2
+  exit 1
+fi
+
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
 if [[ "$KEEP_INFRA" -eq 1 ]]; then
   "$ROOT/scripts/backend-down.sh" --keep-infra
 else
-  "$ROOT/scripts/backend-down.sh"
+  if [[ "$WIPE_DB" -eq 1 ]]; then
+    "$ROOT/scripts/backend-down.sh" --wipe-db
+  else
+    "$ROOT/scripts/backend-down.sh"
+  fi
 fi
 
 BUILD_GOALS=(package -DskipTests)
@@ -85,22 +101,30 @@ wait_for_container_state() {
   started_at="$(date +%s)"
 
   while true; do
-    local current_state
-    current_state="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id")"
+    local raw_state
+    raw_state="$(docker inspect -f '{{.State.Status}}' "$container_id")"
+
+    local health_state
+    health_state="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
+
+    if [[ "$raw_state" == "exited" || "$raw_state" == "dead" ]]; then
+      echo "$service entered state '$raw_state' while waiting for '$target_state'." >&2
+      docker compose -f "$COMPOSE_FILE" logs --tail=80 "$service" || true
+      exit 1
+    fi
+
+    local current_state="$raw_state"
+    if [[ "$health_state" != "none" && "$raw_state" == "running" ]]; then
+      current_state="$health_state"
+    fi
 
     if [[ "$current_state" == "$target_state" ]]; then
       echo "$service is $target_state"
       return
     fi
 
-    if [[ "$current_state" == "exited" || "$current_state" == "dead" ]]; then
-      echo "$service entered state '$current_state' while waiting for '$target_state'." >&2
-      docker compose -f "$COMPOSE_FILE" logs --tail=80 "$service" || true
-      exit 1
-    fi
-
     if (( $(date +%s) - started_at >= timeout_seconds )); then
-      echo "Timed out waiting for $service to become $target_state (last state: $current_state)." >&2
+      echo "Timed out waiting for $service to become $target_state (last state: $current_state, container state: $raw_state)." >&2
       docker compose -f "$COMPOSE_FILE" logs --tail=80 "$service" || true
       exit 1
     fi
@@ -142,8 +166,10 @@ start_service() {
   echo "Starting $service from $(basename "$jar_file")..."
   (
     cd "$service_dir"
-    nohup java -jar "$jar_file" >"$log_file" 2>&1 &
-    echo $! >"$pid_file"
+    nohup java -jar "$jar_file" </dev/null >"$log_file" 2>&1 &
+    local child_pid=$!
+    disown "$child_pid" 2>/dev/null || true
+    echo "$child_pid" >"$pid_file"
   )
 
   local pid

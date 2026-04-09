@@ -5,15 +5,17 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_DIR="$ROOT/.run"
 COMPOSE_FILE="$ROOT/infra/compose/docker-compose.dev.yml"
 KEEP_INFRA=0
+WIPE_DB=0
 
 SERVICES=(collab leetcode submissions worker)
 
 usage() {
   cat <<USAGE
-Usage: ./scripts/backend-down.sh [--keep-infra]
+Usage: ./scripts/backend-down.sh [--keep-infra] [--wipe-db]
 
 Stops tracked Spring backend services.
 By default it also stops local infra containers from infra/compose/docker-compose.dev.yml.
+Use --wipe-db to remove the local Postgres volume and reinitialize it on next startup.
 USAGE
 }
 
@@ -21,6 +23,9 @@ for arg in "$@"; do
   case "$arg" in
     --keep-infra)
       KEEP_INFRA=1
+      ;;
+    --wipe-db)
+      WIPE_DB=1
       ;;
     -h|--help)
       usage
@@ -33,6 +38,12 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+if [[ "$KEEP_INFRA" -eq 1 && "$WIPE_DB" -eq 1 ]]; then
+  echo "--keep-infra and --wipe-db cannot be used together." >&2
+  usage >&2
+  exit 1
+fi
 
 stop_service() {
   local service="$1"
@@ -80,7 +91,12 @@ if [[ "$KEEP_INFRA" -eq 1 ]]; then
   echo "Keeping infra running (--keep-infra set)."
 else
   echo "Stopping infra..."
-  docker compose -f "$COMPOSE_FILE" down
+  if [[ "$WIPE_DB" -eq 1 ]]; then
+    echo "Removing local infra volumes (--wipe-db set)..."
+    docker compose -f "$COMPOSE_FILE" down -v
+  else
+    docker compose -f "$COMPOSE_FILE" down
+  fi
 fi
 
 echo "Done."

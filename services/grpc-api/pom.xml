@@ -84,8 +84,31 @@
         </configuration>
         <executions>
           <execution>
+            <id>generate-protobuf-messages</id>
             <goals>
               <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>generate-grpc-stubs</id>
+            <!--
+              WHY clearOutputDirectory=false HERE?
+
+              compile-custom uses the shared base directory
+              target/generated-sources/protobuf. If it clears that base before
+              generating grpc-java stubs, it deletes the message classes
+              produced by the earlier compile goal. That leaves javac with only
+              ProblemServiceGrpc.java on the source path, which then fails
+              because GetProblemEvalRequest/GetProblemEvalResponse are missing.
+
+              We keep the normal clean phase to remove stale generated sources
+              for clean builds, and we disable clearing only for the second
+              pass so both outputs coexist.
+            -->
+            <configuration>
+              <clearOutputDirectory>false</clearOutputDirectory>
+            </configuration>
+            <goals>
               <goal>compile-custom</goal>
             </goals>
           </execution>
