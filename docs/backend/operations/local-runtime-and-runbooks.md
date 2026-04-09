@@ -14,6 +14,7 @@ Service ports:
 - leetcode-service gRPC: `9090`
 - submissions: `8082`
 - worker: `8083`
+- canvas-service: `8084`
 
 Helper scripts:
 
@@ -22,6 +23,7 @@ Helper scripts:
 
 ## Core Operational Dependencies
 
+- `canvas-service` must be able to migrate the `canvas` schema on startup.
 - `submissions` scheduler must be running to drain `submissions.outbox`.
 - Rabbit queue `eval.queue` should exist before worker consumes (both services declare topology).
 - Worker requires Docker socket access (`worker.docker.host`).
@@ -58,6 +60,7 @@ Helper scripts:
 
 ## Known Current Constraints
 
+- Collab has not been rerouted to canvas-service yet, so live structural websocket traffic can still diverge from the new durable canvas write path until the next integration pass.
 - Collab op log is in-memory; process restarts lose replay history.
 - No DLQ configured for eval pipeline.
 - No unified backend error envelope standard yet.

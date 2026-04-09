@@ -11,6 +11,12 @@ import { python } from "@codemirror/lang-python";
 import { tags } from "@lezer/highlight";
 import { keymap } from "@codemirror/view";
 import type { TextEdit } from "../../shared/crdt";
+import {
+  BUTTON_CLASS,
+  MICRO_LABEL_CLASS,
+  SURFACE_INSET_CLASS,
+  SURFACE_SHELL_CLASS,
+} from "../../shared/ui/styles";
 import { useTheme } from "../../theme/useTheme";
 import { NodeHeader } from "../shared/NodeHeader";
 import type {
@@ -385,7 +391,7 @@ export function CodeNodeRenderer({
 
   return (
     <div
-      className="absolute flex cursor-grab select-none flex-col overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
+      className={`absolute flex cursor-grab select-none flex-col overflow-hidden active:cursor-grabbing ${SURFACE_SHELL_CLASS}`}
       style={{
         left: node.x,
         top: node.y,
@@ -404,7 +410,7 @@ export function CodeNodeRenderer({
               <div className="flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
                 <button
                   type="button"
-                  className="flex items-center gap-1 rounded border border-(--lc-border-default) bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-text-primary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) disabled:opacity-50"
+                  className={`${BUTTON_CLASS} gap-1 bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-text-primary) disabled:opacity-50`}
                   onClick={() => handleRunClick("SAMPLE")}
                   disabled={isRunning}
                 >
@@ -413,7 +419,7 @@ export function CodeNodeRenderer({
                 </button>
                 <button
                   type="button"
-                  className="flex items-center gap-1 rounded border border-(--lc-border-default) bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-success) transition hover:border-(--lc-border-focus) hover:text-(--lc-success) disabled:opacity-50"
+                  className={`${BUTTON_CLASS} gap-1 bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-success) hover:text-(--lc-success) disabled:opacity-50`}
                   onClick={() => handleRunClick("SUBMIT")}
                   disabled={isRunning}
                 >
@@ -422,12 +428,15 @@ export function CodeNodeRenderer({
                 </button>
               </div>
             )}
-            <span className="text-[10px] text-(--lc-text-muted)">{node.data.language}</span>
+            <span className={MICRO_LABEL_CLASS}>{node.data.language}</span>
           </div>
         )}
       />
-      <div className="flex-1 min-h-0" onPointerDown={(e) => e.stopPropagation()}>
-        <div ref={containerRef} className="h-full overflow-auto text-sm" />
+      <div className="flex-1 min-h-0 p-3" onPointerDown={(e) => e.stopPropagation()}>
+        <div
+          ref={containerRef}
+          className={`h-full overflow-hidden text-sm ${SURFACE_INSET_CLASS}`}
+        />
       </div>
     </div>
   );

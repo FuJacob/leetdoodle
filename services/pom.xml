@@ -15,6 +15,7 @@
 
   <modules>
     <module>grpc-api</module>
+    <module>canvas</module>
     <module>collab</module>
     <module>leetcode</module>
     <module>submissions</module>

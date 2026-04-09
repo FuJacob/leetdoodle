@@ -164,5 +164,5 @@ body.lc-is-panning * {
 }
 
 * {
-  outline: 1px solid red;
+  /* outline: 0.1px solid white; */
 }

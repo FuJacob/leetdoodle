@@ -4,6 +4,14 @@ import type {
   TestResultsData,
   TestResultsNode,
 } from "../../shared/nodes";
+import {
+  MICRO_LABEL_CLASS,
+  SEGMENTED_CONTROL_CLASS,
+  SEGMENTED_OPTION_ACTIVE_CLASS,
+  SEGMENTED_OPTION_CLASS,
+  SURFACE_INSET_CLASS,
+  SURFACE_SHELL_CLASS,
+} from "../../shared/ui/styles";
 import { NodeHeader } from "../shared/NodeHeader";
 
 interface Props {
@@ -23,8 +31,10 @@ function panel(text: string | null) {
 function ValueBlock({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="mb-3">
-      <div className="mb-1 text-[10px] font-semibold text-(--lc-text-muted)">{label}</div>
-      <div className="whitespace-pre-wrap border border-(--lc-border-default) bg-(--lc-surface-2) p-2 font-mono text-xs text-(--lc-text-primary)">
+      <div className={`mb-1 ${MICRO_LABEL_CLASS}`}>{label}</div>
+      <div
+        className={`whitespace-pre-wrap p-2 font-mono text-xs text-(--lc-text-primary) ${SURFACE_INSET_CLASS}`}
+      >
         {panel(value)}
       </div>
     </div>
@@ -72,7 +82,7 @@ export function TestResultsNodeRenderer({
 
   return (
     <div
-      className="absolute flex cursor-grab select-none flex-col overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
+      className={`absolute flex cursor-grab select-none flex-col overflow-hidden active:cursor-grabbing ${SURFACE_SHELL_CLASS}`}
       style={{
         left: node.x,
         top: node.y,
@@ -94,32 +104,29 @@ export function TestResultsNodeRenderer({
           }
           className="border-b-0"
         />
-        <div className="flex items-center gap-3 border-b border-(--lc-border-default) px-3 pb-2">
-          <button
-            type="button"
-            className={`text-xs font-semibold ${
-              data.mode === "testcase"
-                ? "text-(--lc-text-primary)"
-                : "text-(--lc-text-muted)"
-            }`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => updateResultsData(node, onUpdate, { mode: "testcase" })}
-          >
-            Testcase
-          </button>
-          <span className="text-(--lc-text-muted)">|</span>
-          <button
-            type="button"
-            className={`text-xs font-semibold ${
-              data.mode === "result"
-                ? "text-(--lc-text-primary)"
-                : "text-(--lc-text-muted)"
-            }`}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => updateResultsData(node, onUpdate, { mode: "result" })}
-          >
-            Test Result
-          </button>
+        <div className="border-b border-(--lc-border-default) px-3 pb-2">
+          <div className={SEGMENTED_CONTROL_CLASS}>
+            <button
+              type="button"
+              className={`${SEGMENTED_OPTION_CLASS} ${
+                data.mode === "testcase" ? SEGMENTED_OPTION_ACTIVE_CLASS : ""
+              }`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => updateResultsData(node, onUpdate, { mode: "testcase" })}
+            >
+              Testcase
+            </button>
+            <button
+              type="button"
+              className={`${SEGMENTED_OPTION_CLASS} ${
+                data.mode === "result" ? SEGMENTED_OPTION_ACTIVE_CLASS : ""
+              }`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => updateResultsData(node, onUpdate, { mode: "result" })}
+            >
+              Test Result
+            </button>
+          </div>
         </div>
       </div>
 
@@ -149,7 +156,7 @@ export function TestResultsNodeRenderer({
         {data.mode === "result" && !running && (
           <>
             {isError && data.errorMessage && (
-              <div className="mb-3 whitespace-pre-wrap border border-(--lc-danger) bg-(--lc-danger-bg-soft) p-2 font-mono text-xs text-(--lc-danger)">
+              <div className="mb-3 whitespace-pre-wrap rounded-md border border-(--lc-danger) bg-(--lc-danger-bg-soft) p-2 font-mono text-xs text-(--lc-danger)">
                 {data.errorMessage}
               </div>
             )}

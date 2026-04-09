@@ -2,6 +2,35 @@
 
 This page zooms into each Spring service and maps internal components to their runtime responsibilities.
 
+## canvas-service
+
+```mermaid
+flowchart LR
+    CC[CanvasController]
+    CS[CanvasService @Transactional]
+    CAR[CanvasRepository]
+    CNR[CanvasNodeRepository]
+    CER[CanvasEdgeRepository]
+    COR[CanvasOperationRepository]
+    PG[(PostgreSQL canvas schema)]
+
+    CC --> CS
+    CS --> CAR
+    CS --> CNR
+    CS --> CER
+    CS --> COR
+    CAR --> PG
+    CNR --> PG
+    CER --> PG
+    COR --> PG
+```
+
+- `CanvasController` exposes durable bootstrap and structural-op HTTP endpoints.
+- `CanvasService.applyStructuralOperation()` reserves a new version, appends to `canvas_ops`, applies the materialized write, and commits in one transaction.
+- `CanvasRepository` owns canvas-level metadata such as `head_version`.
+- `CanvasNodeRepository` and `CanvasEdgeRepository` own the materialized current-state tables.
+- `CanvasOperationRepository` owns the ordered recent structural-op log used for catch-up after a known version.
+
 ## leetcode-service
 
 ```mermaid

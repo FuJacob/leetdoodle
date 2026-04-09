@@ -1,20 +1,21 @@
 import { IconMoon, IconSun } from "@tabler/icons-react";
 import { CONTROL_ICON_SIZE, CONTROL_ICON_STROKE } from "./ui/controlOptions";
 import { useTheme } from "../theme/useTheme";
+import { BUTTON_CLASS, MICRO_LABEL_CLASS } from "../shared/ui/styles";
 
 export function ThemePanel() {
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
 
   return (
-    <div className="flex flex-col gap-2 border border-(--lc-border-default) bg-(--lc-surface-1) p-3">
-      <div className="text-xs font-semibold text-(--lc-text-secondary)">Theme</div>
+    <div className="flex items-center gap-2">
+      <span className={MICRO_LABEL_CLASS}>Theme</span>
       <button
         type="button"
         aria-pressed={isDark}
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
         onClick={toggleTheme}
-        className="flex items-center gap-2 border border-(--lc-border-default) bg-(--lc-surface-2) px-3 py-1.5 text-sm text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+        className={BUTTON_CLASS}
       >
         {isDark ? (
           <IconSun size={CONTROL_ICON_SIZE} stroke={CONTROL_ICON_STROKE} />

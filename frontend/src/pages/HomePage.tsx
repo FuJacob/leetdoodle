@@ -1,6 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  BUTTON_CLASS,
+  MICRO_LABEL_CLASS,
+  SEGMENTED_CONTROL_CLASS,
+  SEGMENTED_OPTION_ACTIVE_CLASS,
+  SEGMENTED_OPTION_CLASS,
+  SURFACE_SHELL_CLASS,
+  TEXT_INPUT_CLASS,
+} from "../shared/ui/styles";
+import {
   ensureSessionParticipant,
   isCanvasPin,
   saveSessionParticipant,
@@ -55,14 +64,14 @@ export function HomePage() {
 
   return (
     <div className="flex h-full items-center justify-center bg-(--lc-canvas-bg) px-4">
-      <div className="w-full max-w-md border border-(--lc-border-default) bg-(--lc-surface-1) p-5">
+      <div className={`w-full max-w-md p-5 ${SURFACE_SHELL_CLASS}`}>
         <h1 className="text-2xl font-semibold text-(--lc-text-primary)">LeetDoodle</h1>
         <p className="mt-1 text-sm text-(--lc-text-muted)">
           Pick a display name, then create or join a canvas.
         </p>
 
         <div className="mt-4">
-          <label className="mb-1 block text-xs font-semibold text-(--lc-text-secondary)">
+          <label className={`mb-1 block ${MICRO_LABEL_CLASS}`}>
             Display Name
           </label>
           <input
@@ -71,32 +80,35 @@ export function HomePage() {
             maxLength={24}
             onChange={(event) => setDisplayNameInput(event.target.value)}
             onBlur={commitParticipantName}
-            className="w-full border border-(--lc-border-default) bg-(--lc-surface-2) px-3 py-2 text-sm text-(--lc-text-primary) outline-none transition focus:border-(--lc-border-focus)"
+            className={TEXT_INPUT_CLASS}
           />
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className={`mt-4 w-full ${SEGMENTED_CONTROL_CLASS}`}>
           <button
             type="button"
             onClick={() => {
               setMode("create");
               setJoinError(null);
             }}
-            className={`border px-3 py-2 text-sm transition ${
+            className={`flex-1 ${SEGMENTED_OPTION_CLASS} ${
               mode === "create"
-                ? "border-(--lc-border-focus) bg-(--lc-surface-3) text-(--lc-accent)"
-                : "border-(--lc-border-default) text-(--lc-text-secondary) hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+                ? SEGMENTED_OPTION_ACTIVE_CLASS
+                : ""
             }`}
           >
             Create
           </button>
           <button
             type="button"
-            onClick={() => setMode("join")}
-            className={`border px-3 py-2 text-sm transition ${
+            onClick={() => {
+              setMode("join");
+              setJoinError(null);
+            }}
+            className={`flex-1 ${SEGMENTED_OPTION_CLASS} ${
               mode === "join"
-                ? "border-(--lc-border-focus) bg-(--lc-surface-3) text-(--lc-accent)"
-                : "border-(--lc-border-default) text-(--lc-text-secondary) hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+                ? SEGMENTED_OPTION_ACTIVE_CLASS
+                : ""
             }`}
           >
             Join
@@ -107,7 +119,7 @@ export function HomePage() {
 
         {mode === "join" && (
           <div className="mt-2">
-            <label className="mb-1 block text-xs font-semibold text-(--lc-text-secondary)">
+            <label className={`mb-1 block ${MICRO_LABEL_CLASS}`}>
               Canvas Pin
             </label>
             <input
@@ -117,7 +129,7 @@ export function HomePage() {
                 setJoinPinInput(event.target.value);
                 setJoinError(null);
               }}
-              className="w-full border border-(--lc-border-default) bg-(--lc-surface-2) px-3 py-2 text-sm text-(--lc-text-primary) outline-none transition focus:border-(--lc-border-focus)"
+              className={TEXT_INPUT_CLASS}
               placeholder="fcb217ea-13b6-4c3f-88fd-0f6be76f4a6b"
             />
             {joinError && <p className="mt-1 text-xs text-(--lc-danger)">{joinError}</p>}
@@ -127,7 +139,7 @@ export function HomePage() {
         <button
           type="button"
           onClick={mode === "create" ? handleCreateCanvas : handleJoinCanvas}
-          className="mt-4 w-full border border-(--lc-border-default) bg-(--lc-surface-1) px-6 py-3 text-sm text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+          className={`${BUTTON_CLASS} mt-4 w-full bg-(--lc-surface-1) px-6 py-3 font-medium text-(--lc-text-primary)`}
         >
           {mode === "create" ? "Create Canvas" : "Join Canvas"}
         </button>

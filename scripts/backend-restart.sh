@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_DIR="$ROOT/.run"
 LOG_DIR="$ROOT/.logs"
 COMPOSE_FILE="$ROOT/infra/compose/docker-compose.dev.yml"
-SERVICES=(collab leetcode submissions worker)
+SERVICES=(canvas collab leetcode submissions worker)
 WAIT_HEALTH_SERVICES=(postgres rabbitmq)
 
 CLEAN_BUILD=1

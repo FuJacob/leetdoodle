@@ -37,7 +37,7 @@ export function NodeHeader({
 
   return (
     <div
-      className={`flex items-center justify-between border-b border-(--lc-border-default) px-3 py-2 ${dragClass} ${className}`}
+      className={`flex items-center justify-between border-b border-(--lc-border-default) bg-(--lc-surface-1) px-3 py-2 ${dragClass} ${className}`}
       onPointerDown={onPointerDown}
     >
       <div className="flex items-center gap-2">
@@ -46,7 +46,9 @@ export function NodeHeader({
           stroke={1.8}
           className="shrink-0 text-(--lc-text-muted)"
         />
-        <span className={`text-xs font-semibold text-(--lc-text-secondary) ${titleClassName}`}>
+        <span
+          className={`text-xs font-semibold tracking-[0.02em] text-(--lc-text-secondary) ${titleClassName}`}
+        >
           {title}
         </span>
       </div>

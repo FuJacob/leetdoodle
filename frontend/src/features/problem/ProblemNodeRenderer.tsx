@@ -4,6 +4,12 @@ import type { CanvasNode, ProblemData, ProblemNode } from "../../shared/nodes";
 import { extractSlug, parseStats, difficultyClass } from "./utils";
 import { useNodeContentSizeSync } from "../../canvas/hooks/useNodeContentSizeSync";
 import { LEETCODE_SERVICE_URL } from "../../shared/config/env";
+import {
+  BUTTON_CLASS,
+  PILL_CLASS,
+  SURFACE_SHELL_CLASS,
+  TEXT_INPUT_CLASS,
+} from "../../shared/ui/styles";
 import { NodeHeader } from "../shared/NodeHeader";
 
 const MIN_NODE_WIDTH = 100;
@@ -92,8 +98,7 @@ export function ProblemNodeRenderer({
     }
   }
 
-  const base =
-    "absolute border border-(--lc-border-default) bg-(--lc-surface-1) overflow-hidden";
+  const base = `absolute overflow-hidden ${SURFACE_SHELL_CLASS}`;
   const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     onPointerDown(e, node);
   };
@@ -125,14 +130,14 @@ export function ProblemNodeRenderer({
         >
           <input
             type="text"
-            className="w-full border border-(--lc-border-strong) bg-(--lc-surface-2) px-2 py-1 text-xs text-(--lc-text-primary) outline-none placeholder:text-(--lc-text-muted)"
+            className={`${TEXT_INPUT_CLASS} text-xs`}
             placeholder="https://leetcode.com/problems/two-sum/"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           />
           <button
-            className="mt-2 w-full border border-(--lc-border-default) bg-(--lc-surface-3) py-1 text-xs text-(--lc-text-primary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) disabled:opacity-40"
+            className={`${BUTTON_CLASS} mt-2 w-full bg-(--lc-surface-3) py-1 text-xs font-medium text-(--lc-text-primary) disabled:opacity-40`}
             onClick={handleCreate}
             disabled={loading || url.trim() === ""}
           >
@@ -171,7 +176,7 @@ export function ProblemNodeRenderer({
           </h3>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
             <span
-              className={`rounded-full border border-current px-2 py-0.5 font-semibold ${difficultyClass(difficulty)}`}
+              className={`${PILL_CLASS} border-current font-semibold ${difficultyClass(difficulty)}`}
             >
               {difficulty}
             </span>
@@ -179,7 +184,7 @@ export function ProblemNodeRenderer({
             {tags.map((t) => (
               <span
                 key={t.id}
-                className="rounded-full border border-(--lc-border-default) px-2 py-0.5 text-[10px] text-(--lc-text-secondary)"
+                className={PILL_CLASS}
               >
                 {t.name}
               </span>
@@ -189,7 +194,7 @@ export function ProblemNodeRenderer({
 
         {/* Render HTML content directly — safe since it's from our own DB */}
         <div
-          className="mb-3 text-xs leading-relaxed text-(--lc-text-secondary) [&_a]:text-(--lc-link) [&_code]:bg-(--lc-surface-2) [&_code]:px-1 [&_code]:text-(--lc-text-secondary) [&_ol]:list-decimal [&_ol]:pl-4 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-(--lc-surface-2) [&_pre]:p-2 [&_strong]:text-(--lc-text-primary) [&_ul]:list-disc [&_ul]:pl-4"
+          className="mb-3 text-xs leading-relaxed text-(--lc-text-secondary) [&_p]:mb-2 [&_a]:text-(--lc-link) [&_code]:rounded-md [&_code]:bg-(--lc-surface-2) [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-(--lc-text-secondary) [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:border-(--lc-border-default) [&_pre]:bg-(--lc-surface-2) [&_pre]:p-2 [&_pre]:mb-2 [&_strong]:text-(--lc-text-primary) [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2"
           dangerouslySetInnerHTML={{ __html: content }}
         />
 

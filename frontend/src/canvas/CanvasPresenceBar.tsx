@@ -1,4 +1,5 @@
 import type { CollabUser } from "./presence/types";
+import { MICRO_LABEL_CLASS, PILL_CLASS } from "../shared/ui/styles";
 
 interface CanvasPresenceBarProps {
   users: CollabUser[];
@@ -7,21 +8,19 @@ interface CanvasPresenceBarProps {
 
 export function CanvasPresenceBar({ users, localUserId }: CanvasPresenceBarProps) {
   return (
-    <div className="flex items-center gap-5 border border-(--lc-border-default) bg-(--lc-surface-1) p-2">
-      {users.map((user) => (
-        <div key={user.id} className="flex items-center gap-2">
-          {/*
-            user.id remains the primary collab identity; displayName is UI-only.
-            If older payloads omit displayName, fallback happens in useCanvasCollab.
-          */}
+    <div className="flex items-center gap-2">
+      <span className={MICRO_LABEL_CLASS}>Presence</span>
+      <div className="flex items-center -space-x-1.5">
+        {users.map((user) => (
           <div
+            key={user.id}
             title={user.id === localUserId ? `You (${user.displayName})` : user.displayName}
-            className={`h-3 w-3 rounded-full ${user.id === localUserId ? "ring-1 ring-(--lc-border-strong)" : ""}`}
+            className={`h-5 w-5 rounded-full border border-(--lc-surface-1) ${user.id === localUserId ? "ring-1 ring-(--lc-border-strong)" : ""}`}
             style={{ backgroundColor: user.color }}
           />
-          <p className="max-w-28 truncate text-(--lc-text-primary)">{user.displayName}</p>
-        </div>
-      ))}
+        ))}
+      </div>
+      <span className={`${PILL_CLASS} px-1.5`}>{users.length}</span>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { IconNote } from "@tabler/icons-react";
 import { useEffect, useRef } from "react";
 import type { TextEdit } from "../../shared/crdt";
 import type { CanvasNode, NoteNode } from "../../shared/nodes";
+import { SURFACE_INSET_CLASS, SURFACE_SHELL_CLASS } from "../../shared/ui/styles";
 import { NodeHeader } from "../shared/NodeHeader";
 
 interface Props {
@@ -59,7 +60,7 @@ export function NoteNodeRenderer({
 
   return (
     <div
-      className="absolute flex cursor-grab select-none flex-col overflow-hidden border border-(--lc-border-default) bg-(--lc-surface-1) active:cursor-grabbing"
+      className={`absolute flex cursor-grab select-none flex-col overflow-hidden active:cursor-grabbing ${SURFACE_SHELL_CLASS}`}
       style={{
         left: node.x,
         top: node.y,
@@ -77,7 +78,7 @@ export function NoteNodeRenderer({
         <textarea
           placeholder="Write a note..."
           value={node.data.content}
-          className="h-full w-full resize-none border border-(--lc-border-default) bg-(--lc-surface-2) p-2 text-sm text-(--lc-text-primary) outline-none placeholder:text-(--lc-text-muted)"
+          className={`h-full w-full resize-none p-2 text-sm text-(--lc-text-primary) outline-none placeholder:text-(--lc-text-muted) ${SURFACE_INSET_CLASS}`}
           onChange={(e) => {
             const next = e.target.value;
             const edits = diffToSingleEdit(lastTextRef.current, next);

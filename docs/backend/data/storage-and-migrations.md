@@ -10,6 +10,11 @@
 - `submissions` schema (owned by `submissions` service):
   - `submissions.submissions`
   - `submissions.outbox`
+- `canvas` schema (owned by `canvas-service`):
+  - `canvas.canvases`
+  - `canvas.canvas_nodes`
+  - `canvas.canvas_edges`
+  - `canvas.canvas_ops`
 
 Worker now writes only submission results directly; eval test-case reads come
 through leetcode-service gRPC.
@@ -50,6 +55,22 @@ through leetcode-service gRPC.
 - `V4__add_outbox_dispatch_metadata.sql`
   - adds publish/lease metadata so the submissions scheduler can claim and retry outbox rows safely
 
+### canvas-service Flyway migrations
+
+- `V1__create_schema.sql`
+  - creates dedicated `canvas` schema
+- `V2__create_canvases_table.sql`
+  - creates `canvas.canvases`
+  - stores monotonic `head_version` per canvas
+- `V3__create_canvas_nodes_table.sql`
+  - creates `canvas.canvas_nodes`
+  - stores materialized node geometry plus type-specific JSONB payload
+- `V4__create_canvas_edges_table.sql`
+  - creates `canvas.canvas_edges`
+  - enforces same-canvas node references via composite foreign keys
+- `V5__create_canvas_ops_table.sql`
+  - creates ordered structural op log with unique `(canvas_id, version)` and idempotent `(canvas_id, client_operation_id)` keys
+
 ## Key Table Contracts
 
 ### `submissions.submissions`
@@ -74,6 +95,29 @@ through leetcode-service gRPC.
 - Foreign key: `problem_id -> problems.id`
 - Ordered by `id` for stable worker execution order
 
+### `canvas.canvases`
+
+- Primary key: `id` (text canvas identifier)
+- `head_version` is the committed monotonic structural version for that canvas
+
+### `canvas.canvas_nodes`
+
+- Primary key: `(canvas_id, node_id)`
+- Top-level geometry is materialized into explicit columns
+- Type-specific node payload is stored in `data` JSONB
+
+### `canvas.canvas_edges`
+
+- Primary key: `(canvas_id, edge_id)`
+- Composite foreign keys keep edge endpoints inside the same canvas
+- Node deletion cascades to dependent edges
+
+### `canvas.canvas_ops`
+
+- Holds committed structural operations after they receive a canvas version
+- `client_operation_id` is unique per canvas for idempotent retries
+- Materialized node/edge tables remain the source of truth for current state; this table exists for catch-up after a known version
+
 ### `problems` eval metadata columns
 
 - `prompt` and `entry_point` are used by worker through gRPC projection.
@@ -83,4 +127,5 @@ through leetcode-service gRPC.
 
 - `leetcode-service`: JDBC repository queries over public schema.
 - `submissions`: JDBC repositories over submissions schema in service-owned transactions.
+- `canvas-service`: JDBC repositories over canvas schema; reserves canvas versions and applies structural mutations transactionally.
 - `worker`: gRPC read from leetcode-service for eval metadata/test cases; direct JDBC write for submission results.

@@ -7,7 +7,7 @@ COMPOSE_FILE="$ROOT/infra/compose/docker-compose.dev.yml"
 KEEP_INFRA=0
 WIPE_DB=0
 
-SERVICES=(collab leetcode submissions worker)
+SERVICES=(canvas collab leetcode submissions worker)
 
 usage() {
   cat <<USAGE

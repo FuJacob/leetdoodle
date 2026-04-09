@@ -10,6 +10,7 @@ This folder is the backend living documentation for LeetDoodle.
 
 ## Service Inventory
 
+- `canvas-service` (port `8084`): durable canvas structure owner; persists nodes, edges, and versioned structural ops.
 - `collab` (port `8080`): WebSocket relay for real-time canvas collaboration.
 - `leetcode-service` (port `8081` HTTP, `9090` gRPC): problem catalog APIs + internal eval-data gRPC provider.
 - `submissions` (port `8082`): submission intake and retrieval; writes transactional outbox.

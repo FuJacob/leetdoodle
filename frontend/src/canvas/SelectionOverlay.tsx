@@ -9,6 +9,11 @@ import {
   NODE_CONTROL_OPTIONS,
   OVERLAY_ACTION_ICON_SIZE,
 } from "./ui/controlOptions";
+import {
+  ACTION_TRAY_CLASS,
+  BUTTON_CLASS,
+  INTERACTIVE_CONTROL_CLASS,
+} from "../shared/ui/styles";
 
 interface Props {
   nodes: CanvasNode[];
@@ -25,6 +30,7 @@ interface Props {
 
 const LOCAL_SELECTION_COLOR = "var(--lc-selection-local)";
 const REMOTE_SELECTION_FALLBACK_COLOR = "var(--lc-selection-remote-fallback)";
+const RESIZE_HANDLE_COLOR = "var(--lc-text-inverse)";
 const TOOLBAR_HORIZONTAL_OFFSET = 10;
 const TOOLBAR_VERTICAL_OFFSET = 18;
 
@@ -40,8 +46,8 @@ function ResizeHandle({
   onCursorModeChange: (mode: LocalCursorMode) => void;
 }) {
   const hitboxSize = 24;
-  const capSize = 12;
-  const capStroke = 3;
+  const capSize = 14;
+  const capStroke = 4;
   const style: React.CSSProperties = {
     position: "absolute",
     left: x - hitboxSize / 2,
@@ -70,12 +76,13 @@ function ResizeHandle({
       <div
         style={{
           position: "absolute",
-          right: hitboxSize / 2 - 1,
-          bottom: hitboxSize / 2 - 1,
+          right: hitboxSize / 2 - 2,
+          bottom: hitboxSize / 2 - 2,
           width: capSize,
           height: capSize,
-          borderRight: `${capStroke}px solid ${LOCAL_SELECTION_COLOR}`,
-          borderBottom: `${capStroke}px solid ${LOCAL_SELECTION_COLOR}`,
+          borderRight: `${capStroke}px solid ${RESIZE_HANDLE_COLOR}`,
+          borderBottom: `${capStroke}px solid ${RESIZE_HANDLE_COLOR}`,
+          borderBottomRightRadius: 8,
           pointerEvents: "none",
         }}
       />
@@ -100,8 +107,10 @@ function ActionIconButton({
       title={title}
       aria-label={title}
       className={`flex h-11 w-11 items-center justify-center border bg-(--lc-surface-1) text-(--lc-text-secondary) shadow-sm transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) ${
+        INTERACTIVE_CONTROL_CLASS
+      } ${
         active
-          ? "border-(--lc-border-focus) text-(--lc-accent)"
+          ? "border-(--lc-border-focus) bg-(--lc-surface-2) text-(--lc-accent)"
           : "border-(--lc-border-strong)"
       }`}
       onPointerDown={(e) => {
@@ -129,7 +138,6 @@ export function SelectionOverlay({
   onSpawn,
   onLocalCursorModeChange,
 }: Props) {
-  const localSelectionColor = "var(--lc-selection-local)";
   const [addNodePanelOwnerId, setAddNodePanelOwnerId] = useState<string | null>(
     null,
   );
@@ -268,7 +276,7 @@ export function SelectionOverlay({
                 width: w + 4,
                 height: h + 4,
                 border: `2px solid ${color}`,
-                borderRadius: 2,
+                borderRadius: 6,
               }}
             />
           );
@@ -285,7 +293,8 @@ export function SelectionOverlay({
             top: node.y * transform.zoom + transform.y,
             width: node.width * transform.zoom,
             height: node.height * transform.zoom,
-            border: `2px solid ${localSelectionColor}`,
+            border: `2px solid ${LOCAL_SELECTION_COLOR}`,
+            borderRadius: 6,
           }}
         />
       ))}
@@ -329,14 +338,14 @@ export function SelectionOverlay({
 
             {showAddNodePanel && (
               <div
-                className="absolute right-full top-0 mr-2 flex gap-2 border border-(--lc-border-strong) bg-(--lc-surface-2) p-2"
+                className={`absolute right-full top-0 mr-2 flex gap-2 ${ACTION_TRAY_CLASS}`}
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 {NODE_CONTROL_OPTIONS.map(({ type, label, Icon }) => (
                   <button
                     key={type}
                     type="button"
-                    className="flex items-center gap-2 border border-(--lc-border-default) bg-(--lc-surface-1) px-2 py-1 text-(--lc-text-secondary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent)"
+                    className={`${BUTTON_CLASS} gap-2 bg-(--lc-surface-1) px-2 py-1 text-xs`}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleSpawnFromSelected(type);

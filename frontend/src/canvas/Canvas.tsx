@@ -8,11 +8,7 @@ import { CursorOverlay } from "./CursorOverlay";
 import { DrawingOverlay } from "./DrawingOverlay";
 import { EdgesOverlay } from "./EdgesOverlay";
 import { SelectionOverlay } from "./SelectionOverlay";
-import { CanvasPresenceBar } from "./CanvasPresenceBar";
-import { SpawnPanel } from "./SpawnPanel";
-import { ToolPanel } from "./ToolPanel";
-import { ThemePanel } from "./ThemePanel";
-import { ZoomPanel } from "./ZoomPanel";
+import { CanvasChrome } from "./CanvasChrome";
 import { useSelectToolController } from "./tools/useSelectToolController";
 import { useDrawToolController } from "../features/draw/hooks/useDrawToolController";
 import { useActiveToolController } from "./tools/useActiveToolController";
@@ -40,7 +36,6 @@ interface ActiveNodeDragState {
 }
 
 export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
-  console.log("Rendering Canvas", { canvasId, userId, displayName });
   const GRID_SPACING = 32;
   const GRID_DOT_RADIUS = 1.35;
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -325,22 +320,18 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
       onPointerMove={activeToolController.onCanvasPointerMove}
       onPointerUp={activeToolController.onCanvasPointerUp}
     >
-      <div className="absolute right-4 top-4 z-60 flex select-none items-start gap-3">
-        <CanvasPresenceBar users={users} localUserId={userId} />
-        <ZoomPanel
-          zoom={transform.zoom}
-          onZoomIn={zoomIn}
-          onZoomOut={zoomOut}
-        />
-        <ThemePanel />
-        <ToolPanel
-          tool={tool}
-          onToolChange={setTool}
-          thickness={thickness}
-          onThicknessChange={setThickness}
-        />
-        {tool === "select" && <SpawnPanel onSpawn={commands.spawnNode} />}
-      </div>
+      <CanvasChrome
+        users={users}
+        localUserId={userId}
+        tool={tool}
+        onToolChange={setTool}
+        thickness={thickness}
+        onThicknessChange={setThickness}
+        zoom={transform.zoom}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onSpawn={commands.spawnNode}
+      />
 
       {isSpacePanning && (
         <div

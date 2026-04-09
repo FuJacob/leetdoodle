@@ -8,6 +8,7 @@ flowchart LR
     FE[LeetDoodle Frontend\n(Vite + React)]
 
     subgraph LC[LeetDoodle Backend System]
+      CAN[Canvas Service\nDurable canvas state]
       COL[Collab Service\nWebSocket relay]
       LEE[Leetcode Service\nProblems + test cases API]
       SUB[Submissions Service\nSubmission intake API]
@@ -21,11 +22,13 @@ flowchart LR
     end
 
     U --> FE
+    FE <-->|/api/canvases| CAN
     FE <-->|/ws realtime| COL
     FE <-->|/api/problems| LEE
     FE <-->|/api/submissions| SUB
     WRK <-->|gRPC :9090| LEE
 
+    CAN <--> PG
     LEE <--> PG
     SUB <--> PG
     SUB -->|writes outbox row| PG
@@ -43,6 +46,7 @@ flowchart LR
 
 ## Key Responsibility Boundaries
 
+- `canvas-service` owns durable canvas structure, materialized current state, and structural version sequencing.
 - `collab` owns low-latency multi-user event relay.
 - `leetcode-service` owns problem catalog and internal eval-data serving (gRPC).
 - `submissions` owns submission creation lifecycle, outbox write, and outbox dispatch.
