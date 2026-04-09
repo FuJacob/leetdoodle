@@ -4,14 +4,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.leetdoodle.collab.canvas.CanvasServiceClient;
+import com.leetdoodle.collab.canvas.CanvasSnapshotResponse;
+import com.leetdoodle.collab.canvas.CommittedCanvasOperationResponse;
+import com.leetdoodle.collab.canvas.StructuralOperationRequest;
 import com.leetdoodle.collab.model.ImmutableJoinMessage;
 import com.leetdoodle.collab.model.JoinMessage;
+import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -53,6 +60,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component // marks this as a Spring-managed bean; Spring creates and injects it where
            // needed
 public class CanvasWebSocketHandler extends TextWebSocketHandler {
+
+    private static final Set<String> STRUCTURAL_EVENT_TYPES = Set.of(
+        "node_create",
+        "node_move",
+        "node_update",
+        "node_delete",
+        "edge_create",
+        "edge_delete"
+    );
 
     private static final String[] USER_COLORS = {
         "#3b82f6", // blue
@@ -129,6 +145,20 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Set<String>> docSeenOpKeys = new ConcurrentHashMap<>();
 
     /**
+     * Sessions currently waiting for durable bootstrap state from canvas-service.
+     *
+     * <p>While a session is in this set, committed structural broadcasts are
+     * queued rather than sent immediately. Once bootstrap finishes, we flush only
+     * the queued events newer than the snapshot's head version.
+     */
+    private final Set<String> bootstrappingSessions = ConcurrentHashMap.newKeySet();
+
+    /**
+     * Per-session queue of structural broadcasts that happened during bootstrap.
+     */
+    private final Map<String, List<QueuedStructuralMessage>> pendingStructuralMessages = new ConcurrentHashMap<>();
+
+    /**
      * Jackson's ObjectMapper converts Java objects ↔ JSON strings.
      *
      * Injected via constructor (Dependency Injection) rather than `new
@@ -138,8 +168,10 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * to create, and tests can swap it out without changing this class.
      */
     private final ObjectMapper objectMapper;
+    private final CanvasServiceClient canvasServiceClient;
 
     private record CollabUser(String id, String displayName, String color) {}
+    private record QueuedStructuralMessage(long version, String payload) {}
 
     private static final class CanvasPresenceState {
         private final Map<String, CollabUser> usersById = new HashMap<>();
@@ -202,8 +234,9 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    public CanvasWebSocketHandler(ObjectMapper objectMapper) {
+    public CanvasWebSocketHandler(ObjectMapper objectMapper, CanvasServiceClient canvasServiceClient) {
         this.objectMapper = objectMapper;
+        this.canvasServiceClient = canvasServiceClient;
     }
 
     /**
@@ -247,6 +280,13 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             // returns only ops the requester has not yet integrated.
             case "sync_request" -> handleSyncRequest(session, root);
 
+            case "node_create",
+                 "node_move",
+                 "node_update",
+                 "node_delete",
+                 "edge_create",
+                 "edge_delete" -> handleStructuralEvent(session, root, type);
+
             // All other events: just relay to peers in the same canvas.
             // The server doesn't need to understand the payload — it's opaque bytes.
             // This covers: cursor_move, node_create, node_move, node_update,
@@ -265,6 +305,9 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * under concurrent load and is notoriously hard to reproduce in testing.
      */
     private void handleJoin(WebSocketSession session, JoinMessage msg) throws Exception {
+        bootstrappingSessions.add(session.getId());
+        pendingStructuralMessages.put(session.getId(), new ArrayList<>());
+
         canvasSessions
                 .computeIfAbsent(msg.canvasId(), k -> ConcurrentHashMap.newKeySet())
                 .add(session);
@@ -281,10 +324,44 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         System.out.printf("User %s joined canvas %s (total sessions in canvas: %d)%n",
                 msg.userId(), msg.canvasId(), canvasSessions.get(msg.canvasId()).size());
 
+        CanvasSnapshotResponse snapshot = canvasServiceClient.getSnapshot(msg.canvasId());
+
         sendPresenceSnapshot(session, presenceState.snapshotUsers());
+        sendCanvasBootstrap(session, snapshot);
+        flushBootstrappedStructuralMessages(session, snapshot.headVersion());
 
         // userId is tab-unique, so every join is a distinct presence participant.
         broadcastUserJoin(msg.canvasId(), session.getId(), joinedUser);
+    }
+
+    /**
+     * Persist one structural mutation through canvas-service, then broadcast the
+     * committed versioned event to peers.
+     *
+     * <p>This replaces the old "optimistic opaque relay" path for structural
+     * state. Ephemeral events can still relay immediately, but nodes/edges now
+     * broadcast only after the durable write succeeds.
+     */
+    private void handleStructuralEvent(WebSocketSession session, JsonNode root, String type) throws Exception {
+        String canvasId = sessionToCanvas.get(session.getId());
+        String actorUserId = sessionToUserId.get(session.getId());
+        if (canvasId == null || actorUserId == null) {
+            System.out.println("Warning: structural event from session that hasn't joined: " + session.getId());
+            return;
+        }
+
+        StructuralOperationRequest request = new StructuralOperationRequest(
+            structuralClientOperationId(root, session),
+            actorUserId,
+            structuralOperationType(type),
+            structuralPayloadFor(type, root)
+        );
+
+        CommittedCanvasOperationResponse committed = canvasServiceClient.commitStructuralOperation(canvasId, request);
+        String committedPayload = objectMapper.writeValueAsString(
+            structuralBroadcastMessage(canvasId, committed)
+        );
+        broadcastStructuralToCanvas(canvasId, session.getId(), committed.version(), committedPayload);
     }
 
     /**
@@ -450,6 +527,25 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private void broadcastStructuralToCanvas(String canvasId,
+                                             String senderSessionId,
+                                             long version,
+                                             String payload) throws Exception {
+        for (WebSocketSession peer : canvasSessions.getOrDefault(canvasId, Set.of())) {
+            if (!peer.isOpen()) {
+                continue;
+            }
+            if (peer.getId().equals(senderSessionId)) {
+                continue;
+            }
+            if (bootstrappingSessions.contains(peer.getId())) {
+                queueStructuralMessage(peer.getId(), version, payload);
+                continue;
+            }
+            sendToSession(peer, new TextMessage(payload));
+        }
+    }
+
     private void sendPresenceSnapshot(WebSocketSession session, List<CollabUser> users) throws Exception {
         ObjectNode response = objectMapper.createObjectNode();
         response.put("type", "presence_snapshot");
@@ -491,6 +587,44 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private void sendCanvasBootstrap(WebSocketSession session, CanvasSnapshotResponse snapshot) throws Exception {
+        ObjectNode response = objectMapper.createObjectNode();
+        response.put("type", "canvas_bootstrap");
+        response.put("canvasId", snapshot.canvasId());
+        response.put("headVersion", snapshot.headVersion());
+        response.set("nodes", snapshot.nodes() == null ? objectMapper.createArrayNode() : snapshot.nodes().deepCopy());
+        response.set("edges", snapshot.edges() == null ? objectMapper.createArrayNode() : snapshot.edges().deepCopy());
+        sendToSession(session, new TextMessage(
+            Objects.requireNonNull(objectMapper.writeValueAsString(response))
+        ));
+    }
+
+    private void flushBootstrappedStructuralMessages(WebSocketSession session, long headVersion) throws Exception {
+        String sessionId = session.getId();
+        List<QueuedStructuralMessage> queue = pendingStructuralMessages.remove(sessionId);
+
+        synchronized (session) {
+            if (queue != null) {
+                synchronized (queue) {
+                    for (QueuedStructuralMessage queued : queue) {
+                        if (queued.version() <= headVersion) {
+                            continue;
+                        }
+                        session.sendMessage(new TextMessage(queued.payload()));
+                    }
+                }
+            }
+            bootstrappingSessions.remove(sessionId);
+        }
+    }
+
+    private void queueStructuralMessage(String sessionId, long version, String payload) {
+        List<QueuedStructuralMessage> queue = pendingStructuralMessages.computeIfAbsent(sessionId, ignored -> new ArrayList<>());
+        synchronized (queue) {
+            queue.add(new QueuedStructuralMessage(version, payload));
+        }
+    }
+
     private String docKey(String canvasId, String docId) {
         return canvasId + "::" + docId;
     }
@@ -521,6 +655,145 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         return value.asInt();
     }
 
+    private String structuralClientOperationId(JsonNode root, WebSocketSession session) {
+        String existingId = readText(root, "clientOperationId");
+        if (existingId != null && !existingId.isBlank()) {
+            return existingId;
+        }
+        return session.getId() + ":" + UUID.randomUUID();
+    }
+
+    private String structuralOperationType(String eventType) {
+        return switch (eventType) {
+            case "node_create" -> "NODE_CREATE";
+            case "node_move" -> "NODE_MOVE";
+            case "node_update" -> "NODE_UPDATE";
+            case "node_delete" -> "NODE_DELETE";
+            case "edge_create" -> "EDGE_CREATE";
+            case "edge_delete" -> "EDGE_DELETE";
+            default -> throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Unsupported structural event type: " + eventType
+            );
+        };
+    }
+
+    private JsonNode structuralPayloadFor(String eventType, JsonNode root) {
+        return switch (eventType) {
+            case "node_create" -> requireField(root, "node", eventType).deepCopy();
+            case "node_move" -> {
+                ObjectNode payload = objectMapper.createObjectNode();
+                payload.put("nodeId", requireTextField(root, "nodeId", eventType));
+                payload.put("x", requireNumericField(root, "x", eventType));
+                payload.put("y", requireNumericField(root, "y", eventType));
+                yield payload;
+            }
+            case "node_update" -> {
+                ObjectNode patch = requireField(root, "patch", eventType).deepCopy();
+                patch.put("nodeId", requireTextField(root, "nodeId", eventType));
+                yield patch;
+            }
+            case "node_delete" -> {
+                ObjectNode payload = objectMapper.createObjectNode();
+                payload.put("nodeId", requireTextField(root, "nodeId", eventType));
+                yield payload;
+            }
+            case "edge_create" -> requireField(root, "edge", eventType).deepCopy();
+            case "edge_delete" -> {
+                ObjectNode payload = objectMapper.createObjectNode();
+                payload.put("edgeId", requireTextField(root, "edgeId", eventType));
+                yield payload;
+            }
+            default -> throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Unsupported structural event type: " + eventType
+            );
+        };
+    }
+
+    private ObjectNode structuralBroadcastMessage(String canvasId, CommittedCanvasOperationResponse committed) {
+        ObjectNode outbound = objectMapper.createObjectNode();
+        outbound.put("canvasId", canvasId);
+        outbound.put("userId", committed.actorUserId());
+        outbound.put("version", committed.version());
+        outbound.put("eventId", committed.id());
+        outbound.put("clientOperationId", committed.clientOperationId());
+
+        String operationType = committed.operationType();
+        JsonNode payload = committed.payload();
+
+        switch (operationType) {
+            case "NODE_CREATE" -> {
+                outbound.put("type", "node_create");
+                outbound.set("node", payload.deepCopy());
+            }
+            case "NODE_MOVE" -> {
+                outbound.put("type", "node_move");
+                outbound.put("nodeId", readText(payload, "nodeId"));
+                outbound.put("x", payload.path("x").asDouble());
+                outbound.put("y", payload.path("y").asDouble());
+            }
+            case "NODE_UPDATE" -> {
+                outbound.put("type", "node_update");
+                outbound.put("nodeId", readText(payload, "nodeId"));
+                ObjectNode patch = payload.deepCopy();
+                patch.remove("nodeId");
+                outbound.set("patch", patch);
+            }
+            case "NODE_DELETE" -> {
+                outbound.put("type", "node_delete");
+                outbound.put("nodeId", readText(payload, "nodeId"));
+            }
+            case "EDGE_CREATE" -> {
+                outbound.put("type", "edge_create");
+                outbound.set("edge", payload.deepCopy());
+            }
+            case "EDGE_DELETE" -> {
+                outbound.put("type", "edge_delete");
+                outbound.put("edgeId", readText(payload, "edgeId"));
+            }
+            default -> throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "canvas-service returned unsupported operation type: " + operationType
+            );
+        }
+
+        return outbound;
+    }
+
+    private ObjectNode requireField(JsonNode node, String field, String eventType) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull() || !value.isObject()) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                eventType + " requires object field '" + field + "'"
+            );
+        }
+        return (ObjectNode) value;
+    }
+
+    private String requireTextField(JsonNode node, String field, String eventType) {
+        String value = readText(node, field);
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                eventType + " requires text field '" + field + "'"
+            );
+        }
+        return value;
+    }
+
+    private double requireNumericField(JsonNode node, String field, String eventType) {
+        JsonNode value = node.get(field);
+        if (value == null || !value.isNumber()) {
+            throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                eventType + " requires numeric field '" + field + "'"
+            );
+        }
+        return value.asDouble();
+    }
+
     /**
      * Called automatically when a client disconnects — tab close, network drop,
      * etc.
@@ -534,6 +807,9 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      */
     @Override
     public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
+        bootstrappingSessions.remove(session.getId());
+        pendingStructuralMessages.remove(session.getId());
+
         // remove() returns the old value atomically, giving us the canvasId to clean up
         String canvasId = sessionToCanvas.remove(session.getId());
         String userId = sessionToUserId.remove(session.getId());
