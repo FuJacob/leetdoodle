@@ -14,7 +14,8 @@ Service ports:
 - leetcode-service gRPC: `9090`
 - submissions: `8082`
 - worker: `8083`
-- canvas-service: `8084`
+- canvas-service HTTP: `8084`
+- canvas-service gRPC: `9091`
 
 Helper scripts:
 
@@ -24,6 +25,7 @@ Helper scripts:
 ## Core Operational Dependencies
 
 - `canvas-service` must be able to migrate the `canvas` schema on startup.
+- `collab` requires a healthy gRPC channel to `canvas-service` (`grpc.client.canvas-service.*`) for durable structural websocket events.
 - `submissions` scheduler must be running to drain `submissions.outbox`.
 - Rabbit queue `eval.queue` should exist before worker consumes (both services declare topology).
 - Worker requires Docker socket access (`worker.docker.host`).

@@ -7,6 +7,7 @@ This page zooms into each Spring service and maps internal components to their r
 ```mermaid
 flowchart LR
     CC[CanvasController]
+    CG[CanvasGrpcService]
     CS[CanvasService @Transactional]
     CAR[CanvasRepository]
     CNR[CanvasNodeRepository]
@@ -15,6 +16,7 @@ flowchart LR
     PG[(PostgreSQL canvas schema)]
 
     CC --> CS
+    CG --> CS
     CS --> CAR
     CS --> CNR
     CS --> CER
@@ -25,7 +27,8 @@ flowchart LR
     COR --> PG
 ```
 
-- `CanvasController` exposes durable bootstrap and structural-op HTTP endpoints.
+- `CanvasController` exposes a small HTTP debug surface for manual inspection.
+- `CanvasGrpcService` is the internal service-to-service contract used by collab.
 - `CanvasService.applyStructuralOperation()` reserves a new version, appends to `canvas_ops`, applies the materialized write, and commits in one transaction.
 - `CanvasRepository` owns canvas-level metadata such as `head_version`.
 - `CanvasNodeRepository` and `CanvasEdgeRepository` own the materialized current-state tables.
@@ -115,22 +118,27 @@ flowchart LR
 flowchart LR
     WSC[WebSocketConfig /ws]
     CWH[CanvasWebSocketHandler]
+    CSC[CanvasServiceClient gRPC]
     CSR[(canvasSessions)]
     S2C[(sessionToCanvas)]
     S2U[(sessionToUserId)]
     OPL[(docOpLog)]
     SEEN[(docSeenOpKeys)]
+    CAN[(canvas-service gRPC)]
 
     WSC --> CWH
+    CWH --> CSC
     CWH --> CSR
     CWH --> S2C
     CWH --> S2U
     CWH --> OPL
     CWH --> SEEN
+    CSC --> CAN
 ```
 
 - Join flow registers session/user/canvas mappings and broadcasts presence.
-- Generic events are relayed as opaque payloads to peers in canvas room.
+- Durable structural events are committed through canvas-service before collab broadcasts them to peers.
+- Ephemeral events are still relayed directly in-memory.
 - `crdt_op` path does dedup + op-log append + broadcast.
 - `sync_request` path returns missing ops by state vector.
 

@@ -31,6 +31,16 @@
       <!-- no version — resolved from parent dependencyManagement -->
     </dependency>
 
+    <dependency>
+      <groupId>com.leetdoodle</groupId>
+      <artifactId>grpc-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>net.devh</groupId>
+      <artifactId>grpc-client-spring-boot-starter</artifactId>
+    </dependency>
+
 
     <dependency>
     <groupId>org.springframework.boot</groupId>

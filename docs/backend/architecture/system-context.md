@@ -22,10 +22,10 @@ flowchart LR
     end
 
     U --> FE
-    FE <-->|/api/canvases| CAN
     FE <-->|/ws realtime| COL
     FE <-->|/api/problems| LEE
     FE <-->|/api/submissions| SUB
+    COL <-->|gRPC :9091| CAN
     WRK <-->|gRPC :9090| LEE
 
     CAN <--> PG
@@ -47,7 +47,7 @@ flowchart LR
 ## Key Responsibility Boundaries
 
 - `canvas-service` owns durable canvas structure, materialized current state, and structural version sequencing.
-- `collab` owns low-latency multi-user event relay.
+- `collab` owns low-latency multi-user event relay and calls `canvas-service` over gRPC before broadcasting durable structural changes.
 - `leetcode-service` owns problem catalog and internal eval-data serving (gRPC).
 - `submissions` owns submission creation lifecycle, outbox write, and outbox dispatch.
 - `worker` owns async evaluation execution and result persistence.

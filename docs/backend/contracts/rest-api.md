@@ -10,6 +10,9 @@ This document captures the backend HTTP contracts currently implemented by Sprin
 
 ## Canvas API (`/api/canvases`)
 
+These endpoints remain available as a debug/admin surface.
+Internal `collab -> canvas-service` traffic now uses gRPC instead of HTTP.
+
 ### `GET /api/canvases/{canvasId}`
 
 Returns the current durable materialized state for one canvas:

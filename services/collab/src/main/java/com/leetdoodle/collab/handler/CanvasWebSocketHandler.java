@@ -249,13 +249,15 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
      * consumers,
      * gRPC service dispatch, actor systems, and event buses.
      *
-     * PURE RELAY ARCHITECTURE:
-     * For canvas events (node_create, node_move, etc.), the server doesn't
-     * interpret
-     * the payload — it just broadcasts the raw JSON to all peers in the same
-     * canvas.
-     * This keeps the server simple and decoupled from the frontend's data model.
-     * The client is the source of truth; the server is just a message router.
+     * SPLIT TRANSPORT MODEL:
+     * - ephemeral events (cursor, drag lifecycle, draw preview) still relay
+     *   directly in-memory for low latency
+     * - durable structural events (node/edge graph changes) round-trip through
+     *   canvas-service first, then collab broadcasts the committed versioned
+     *   event to peers
+     *
+     * This keeps collab fast where it should be fast, while moving durable
+     * structural truth out of the websocket process.
      */
     @Override
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
@@ -287,10 +289,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
                  "edge_create",
                  "edge_delete" -> handleStructuralEvent(session, root, type);
 
-            // All other events: just relay to peers in the same canvas.
-            // The server doesn't need to understand the payload — it's opaque bytes.
-            // This covers: cursor_move, node_create, node_move, node_update,
-            // node_delete, edge_create, edge_delete, and any future event types.
+            // Everything else is treated as ephemeral relay traffic.
             default -> broadcastToCanvas(session, message.getPayload());
         }
     }
@@ -480,16 +479,11 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
-     * Generic broadcast: forwards a message to all OTHER sessions in the same
-     * canvas.
-     * This is the fan-out: 1 message in → (N-1) messages out.
+     * Generic broadcast for ephemeral events: forwards a message to all OTHER
+     * sessions in the same canvas.
      *
-     * PURE RELAY:
-     * The server doesn't parse or validate the payload beyond extracting the type.
-     * It just forwards the raw JSON string. This means:
-     * - Adding new event types requires zero server changes
-     * - Frontend schema changes don't break the server
-     * - Server stays simple and fast
+     * This path intentionally stays lightweight and schema-agnostic because it is
+     * used for low-latency signals where durable sequencing does not matter.
      *
      * ORDERING NOTE:
      * We don't guarantee message ordering. Rapid updates from user A might arrive

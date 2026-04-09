@@ -1,19 +1,19 @@
 package com.leetdoodle.collab.canvas;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
+import com.leetdoodle.grpc.CanvasServiceGrpc;
+import com.leetdoodle.grpc.CommitStructuralOpRequest;
+import com.leetdoodle.grpc.GetCanvasOpsAfterRequest;
+import com.leetdoodle.grpc.GetCanvasSnapshotRequest;
+import io.grpc.StatusRuntimeException;
+import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
+import java.util.List;
 
 /**
  * Thin synchronous client from collab -> canvas-service.
@@ -25,29 +25,35 @@ import java.time.Duration;
 @Component
 public class CanvasServiceClient {
 
-    private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
-    private final String baseUrl;
 
-    public CanvasServiceClient(ObjectMapper objectMapper,
-                               @Value("${canvas.service.base-url}") String baseUrl) {
+    @GrpcClient("canvas-service")
+    private CanvasServiceGrpc.CanvasServiceBlockingStub stub;
+
+    public CanvasServiceClient(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
-        this.baseUrl = stripTrailingSlash(baseUrl);
-        this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(3))
-            .build();
     }
 
     /**
      * Fetch the current durable materialized snapshot for one canvas.
      */
     public CanvasSnapshotResponse getSnapshot(String canvasId) {
-        HttpRequest request = HttpRequest.newBuilder(uri("/api/canvases/" + encodePathSegment(canvasId)))
-            .timeout(Duration.ofSeconds(5))
-            .GET()
-            .build();
+        try {
+            var response = stub.getCanvasSnapshot(
+                GetCanvasSnapshotRequest.newBuilder()
+                    .setCanvasId(canvasId)
+                    .build()
+            );
 
-        return send(request, CanvasSnapshotResponse.class);
+            return new CanvasSnapshotResponse(
+                response.getCanvasId(),
+                response.getHeadVersion(),
+                readJson(response.getNodesJson()),
+                readJson(response.getEdgesJson())
+            );
+        } catch (StatusRuntimeException exception) {
+            throw mapGrpcError("Failed to load canvas snapshot", exception);
+        }
     }
 
     /**
@@ -56,55 +62,90 @@ public class CanvasServiceClient {
     public CommittedCanvasOperationResponse commitStructuralOperation(String canvasId,
                                                                      StructuralOperationRequest requestBody) {
         try {
-            String body = objectMapper.writeValueAsString(requestBody);
-            HttpRequest request = HttpRequest.newBuilder(uri("/api/canvases/" + encodePathSegment(canvasId) + "/ops"))
-                .timeout(Duration.ofSeconds(5))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
+            var response = stub.commitStructuralOp(
+                CommitStructuralOpRequest.newBuilder()
+                    .setCanvasId(canvasId)
+                    .setClientOperationId(requestBody.clientOperationId())
+                    .setActorUserId(requestBody.actorUserId())
+                    .setOperationType(requestBody.operationType())
+                    .setPayloadJson(writeJson(requestBody.payload()))
+                    .build()
+            );
 
-            return send(request, CommittedCanvasOperationResponse.class);
-        } catch (IOException exception) {
-            throw new IllegalStateException("Failed to serialize structural operation request", exception);
+            return new CommittedCanvasOperationResponse(
+                response.getId(),
+                response.getCanvasId(),
+                response.getVersion(),
+                response.getClientOperationId(),
+                response.getActorUserId(),
+                response.getOperationType(),
+                readJson(response.getPayloadJson())
+            );
+        } catch (StatusRuntimeException exception) {
+            throw mapGrpcError("Failed to commit structural op", exception);
         }
     }
 
-    private <T> T send(HttpRequest request, Class<T> responseType) {
+    /**
+     * Fetch committed structural ops newer than a known canvas version.
+     *
+     * <p>This is not on the hot path yet, but we expose it now so join/catch-up
+     * flows have a typed API once the frontend starts version-aware replay.
+     */
+    public List<CommittedCanvasOperationResponse> getOperationsAfter(String canvasId, long afterVersion, int limit) {
         try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                return objectMapper.readValue(response.body(), responseType);
-            }
+            var response = stub.getCanvasOpsAfter(
+                GetCanvasOpsAfterRequest.newBuilder()
+                    .setCanvasId(canvasId)
+                    .setAfterVersion(afterVersion)
+                    .setLimit(limit)
+                    .build()
+            );
 
-            throw new ResponseStatusException(
-                HttpStatus.BAD_GATEWAY,
-                "canvas-service returned HTTP " + response.statusCode()
-            );
-        } catch (IOException exception) {
-            throw new ResponseStatusException(
-                HttpStatus.BAD_GATEWAY,
-                "Failed to reach canvas-service",
-                exception
-            );
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            throw new ResponseStatusException(
-                HttpStatus.BAD_GATEWAY,
-                "Interrupted while calling canvas-service",
-                exception
-            );
+            return response.getOpsList().stream()
+                .map(op -> new CommittedCanvasOperationResponse(
+                    op.getId(),
+                    op.getCanvasId(),
+                    op.getVersion(),
+                    op.getClientOperationId(),
+                    op.getActorUserId(),
+                    op.getOperationType(),
+                    readJson(op.getPayloadJson())
+                ))
+                .toList();
+        } catch (StatusRuntimeException exception) {
+            throw mapGrpcError("Failed to load canvas ops", exception);
         }
     }
 
-    private URI uri(String path) {
-        return URI.create(baseUrl + path);
+    private JsonNode readJson(String rawJson) {
+        try {
+            return objectMapper.readTree(rawJson);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Failed to parse JSON from canvas-service", exception);
+        }
     }
 
-    private String stripTrailingSlash(String value) {
-        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+    private String writeJson(JsonNode json) {
+        try {
+            return objectMapper.writeValueAsString(json);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Failed to serialize JSON for canvas-service", exception);
+        }
     }
 
-    private String encodePathSegment(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    private ResponseStatusException mapGrpcError(String fallbackMessage, StatusRuntimeException exception) {
+        HttpStatus status = switch (exception.getStatus().getCode()) {
+            case INVALID_ARGUMENT -> HttpStatus.BAD_REQUEST;
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case ALREADY_EXISTS, ABORTED -> HttpStatus.CONFLICT;
+            default -> HttpStatus.BAD_GATEWAY;
+        };
+        String reason = exception.getStatus().getDescription();
+        return new ResponseStatusException(
+            status,
+            reason == null || reason.isBlank() ? fallbackMessage : reason,
+            exception
+        );
     }
 }

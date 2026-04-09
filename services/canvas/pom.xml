@@ -37,6 +37,16 @@
     </dependency>
 
     <dependency>
+      <groupId>com.leetdoodle</groupId>
+      <artifactId>grpc-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>net.devh</groupId>
+      <artifactId>grpc-server-spring-boot-starter</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-devtools</artifactId>
       <scope>runtime</scope>

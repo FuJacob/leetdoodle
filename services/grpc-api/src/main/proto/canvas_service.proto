@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+option java_package = "com.leetdoodle.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "CanvasServiceProto";
+
+/*
+ * CanvasService: internal durable structural canvas owner.
+ *
+ * WHY JSON STRINGS INSIDE THE PROTO?
+ * Canvas nodes are polymorphic and their `data` payloads vary by node type.
+ * Using JSON for the node/edge snapshot and structural op payloads keeps the
+ * gRPC envelope strongly typed without forcing the proto layer to mirror the
+ * entire frontend canvas schema yet.
+ */
+service CanvasService {
+  rpc GetCanvasSnapshot(GetCanvasSnapshotRequest) returns (GetCanvasSnapshotResponse);
+  rpc GetCanvasOpsAfter(GetCanvasOpsAfterRequest) returns (GetCanvasOpsAfterResponse);
+  rpc CommitStructuralOp(CommitStructuralOpRequest) returns (CommittedStructuralOpResponse);
+}
+
+message GetCanvasSnapshotRequest {
+  string canvas_id = 1;
+}
+
+message GetCanvasSnapshotResponse {
+  string canvas_id = 1;
+  int64 head_version = 2;
+  string nodes_json = 3;
+  string edges_json = 4;
+}
+
+message GetCanvasOpsAfterRequest {
+  string canvas_id = 1;
+  int64 after_version = 2;
+  int32 limit = 3;
+}
+
+message GetCanvasOpsAfterResponse {
+  repeated CommittedStructuralOpResponse ops = 1;
+}
+
+message CommitStructuralOpRequest {
+  string canvas_id = 1;
+  string client_operation_id = 2;
+  string actor_user_id = 3;
+  string operation_type = 4;
+  string payload_json = 5;
+}
+
+message CommittedStructuralOpResponse {
+  string id = 1;
+  string canvas_id = 2;
+  int64 version = 3;
+  string client_operation_id = 4;
+  string actor_user_id = 5;
+  string operation_type = 6;
+  string payload_json = 7;
+}

@@ -7,7 +7,8 @@ WebSocket endpoint:
 Transport model:
 
 - Client sends JSON messages with a `type` discriminator.
-- Server relays most events opaquely to peers in the same canvas room.
+- Ephemeral events are relayed directly in-memory.
+- Durable structural events are committed through `canvas-service` first, then broadcast with committed metadata.
 - `crdt_op` and `sync_request` are special-cased for replay/sync.
 
 ## Join Flow
@@ -27,6 +28,7 @@ Server behavior:
 - Adds session to room (`canvasSessions`).
 - Tracks reverse indices (`sessionToCanvas`, `sessionToUserId`).
 - Sends `presence_snapshot` to the newly joined session.
+- Sends `canvas_bootstrap` with durable snapshot state from `canvas-service`.
 - Broadcasts `user_join` to peers in the same canvas.
 
 Presence identity model:
@@ -56,8 +58,14 @@ Primary outbound events (from `frontend/src/shared/events.ts`):
 ## Event Types (Server -> Client)
 
 - `presence_snapshot` (`users[]`, each item: `{ id, color }`)
+- `canvas_bootstrap` (`canvasId`, `headVersion`, `nodes[]`, `edges[]`)
 - `user_join` (`user`, shape: `{ id, color }`)
-- mirrored relay events for cursor/node/edge/draw updates with sender `userId`
+- mirrored relay events for cursor/draw updates with sender `userId`
+- committed structural events include:
+  - `version`
+  - `eventId`
+  - `clientOperationId`
+  - `userId`
 - mirrored relay events include drag lifecycle (`node_drag_start`, `node_drag_end`)
 - `user_leave` (`userId`, tab/session participant id)
 - `sync_response` (`docId`, `ops[]`)

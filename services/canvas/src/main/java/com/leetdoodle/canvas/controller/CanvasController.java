@@ -16,11 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * HTTP surface for durable canvas state and structural sequencing.
+ * HTTP debug surface for durable canvas state and structural sequencing.
  *
- * <p>This API is intentionally small: current materialized snapshot, recent
- * committed ops after a version, and one endpoint to commit a structural
- * operation transactionally.
+ * <p>The internal hot path now uses gRPC from collab -> canvas-service. These
+ * endpoints remain useful for manual inspection and debugging because they are
+ * easy to exercise with curl/Postman during local development.
  */
 @RestController
 @RequestMapping("/api/canvases")
