@@ -93,14 +93,14 @@ export function ProblemNodeRenderer({
   }
 
   const base =
-    "absolute select-none border border-(--lc-border-default) bg-(--lc-surface-1) overflow-hidden";
+    "absolute border border-(--lc-border-default) bg-(--lc-surface-1) overflow-hidden";
   // ── empty / error: URL input ─────────────────────────────────────────────
 
   if (node.data.status === "empty" || node.data.status === "error") {
     const error = node.data.status === "error" ? node.data.message : null;
     return (
       <div
-        className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
+        className={`${base} flex flex-col`}
         style={{
           left: node.x,
           top: node.y,
@@ -108,9 +108,11 @@ export function ProblemNodeRenderer({
           height: node.height,
           ...dragStyle,
         }}
-        onPointerDown={(e) => onPointerDown(e, node)}
       >
-        <div className="border-b border-(--lc-border-default) px-3 py-2 text-xs font-semibold text-(--lc-text-secondary)">
+        <div
+          className="cursor-grab select-none border-b border-(--lc-border-default) px-3 py-2 text-xs font-semibold text-(--lc-text-secondary) active:cursor-grabbing"
+          onPointerDown={(e) => onPointerDown(e, node)}
+        >
           Problem
         </div>
         {/* Stop pointer-down so typing in the input doesn't start a drag */}
@@ -148,18 +150,20 @@ export function ProblemNodeRenderer({
   return (
     <div
       ref={loadedRootRef}
-      className={`${base} cursor-grab active:cursor-grabbing flex flex-col`}
+      className={`${base} flex flex-col`}
       style={{ left: node.x, top: node.y, width: node.width, ...dragStyle }}
-      onPointerDown={(e) => onPointerDown(e, node)}
     >
-      <div className="flex items-baseline justify-between border-b border-(--lc-border-default) px-3 py-2">
+      <div
+        className="flex cursor-grab select-none items-baseline justify-between border-b border-(--lc-border-default) px-3 py-2 active:cursor-grabbing"
+        onPointerDown={(e) => onPointerDown(e, node)}
+      >
         <div className="text-sm font-medium text-(--lc-text-primary)">
           {title}
         </div>
         <div className={`text-xs ml-2 shrink-0 ${difficultyClass(difficulty)}`}>{difficulty}</div>
       </div>
 
-      <div className="p-3">
+      <div className="p-3" onPointerDown={(e) => e.stopPropagation()}>
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {tags.map((t) => (

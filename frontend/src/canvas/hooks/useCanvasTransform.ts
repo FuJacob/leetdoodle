@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import type { Transform } from "../types";
-import { ZOOM_STEP_FACTOR, zoomByFactorToward } from "../utils/math";
+import { ZOOM_STEP_FACTOR, zoomByFactorToward, zoomToward } from "../utils/math";
 
 const INITIAL_TRANSFORM: Transform = { x: 0, y: 0, zoom: 1 };
 const PAN_SELECTION_CLASS = "lc-is-panning";
@@ -186,6 +186,23 @@ export function useCanvasTransform(
     const handleWheel = (e: WheelEvent) => {
       const deltaX = normalizeWheelDelta(e.deltaX, e.deltaMode, el.clientWidth);
       const deltaY = normalizeWheelDelta(e.deltaY, e.deltaMode, el.clientHeight);
+
+      // Trackpad pinch gestures arrive as wheel events with ctrlKey=true in
+      // Chromium/WebKit. Treat those as zoom so the canvas behaves like a real
+      // design surface instead of incorrectly panning on pinch.
+      if (e.ctrlKey) {
+        e.preventDefault();
+
+        const rect = el.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+
+        setTransform((prev) =>
+          clampTransformPan(zoomToward(prev, screenX, screenY, deltaY)),
+        );
+        return;
+      }
+
       if (shouldAllowNativeWheel(e.target, el, deltaX, deltaY)) {
         return;
       }
