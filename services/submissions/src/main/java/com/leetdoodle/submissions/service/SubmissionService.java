@@ -1,5 +1,6 @@
 package com.leetdoodle.submissions.service;
 
+import com.leetdoodle.submissions.model.ExecutionMode;
 import com.leetdoodle.submissions.model.EvalJob;
 import com.leetdoodle.submissions.model.ImmutableSubmission;
 import com.leetdoodle.submissions.model.Submission;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -53,7 +55,15 @@ public class SubmissionService {
      * as long as the database commit succeeded.
      */
     @Transactional
-    public UUID submit(int problemId, String userId, String language, String code) {
+    public UUID submit(
+        int problemId,
+        String userId,
+        String language,
+        String code,
+        @Nullable ExecutionMode executionMode
+    ) {
+        ExecutionMode resolvedExecutionMode = resolveExecutionMode(executionMode);
+
         Submission submission = ImmutableSubmission.builder()
             .problemId(problemId)
             .userId(Objects.requireNonNull(userId))
@@ -63,8 +73,15 @@ public class SubmissionService {
             .build();
 
         UUID id = submissionRepository.insert(submission);
-        outboxRepository.insert(id, new EvalJob(id.toString(), problemId, language, code));
+        outboxRepository.insert(
+            id,
+            new EvalJob(id.toString(), problemId, language, code, resolvedExecutionMode)
+        );
         return id;
+    }
+
+    private ExecutionMode resolveExecutionMode(@Nullable ExecutionMode requestedMode) {
+        return requestedMode == null ? ExecutionMode.SUBMIT : requestedMode;
     }
 
     public Submission getById(UUID id) {

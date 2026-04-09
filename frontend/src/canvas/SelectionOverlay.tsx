@@ -23,43 +23,33 @@ interface Props {
   onLocalCursorModeChange: (mode: LocalCursorMode) => void;
 }
 
-type Corner = "nw" | "ne" | "sw" | "se";
-
 const LOCAL_SELECTION_COLOR = "var(--lc-selection-local)";
 const REMOTE_SELECTION_FALLBACK_COLOR = "var(--lc-selection-remote-fallback)";
 const TOOLBAR_HORIZONTAL_OFFSET = 10;
 const TOOLBAR_VERTICAL_OFFSET = 18;
 
-function getCursorModeForCorner(corner: Corner): LocalCursorMode {
-  return corner === "nw" || corner === "se" ? "resize-nwse" : "resize-nesw";
-}
-
-function CornerHandle({
-  corner,
+function ResizeHandle({
   x,
   y,
-  onDragStart,
+  onResizeStart,
   onCursorModeChange,
 }: {
-  corner: Corner;
   x: number;
   y: number;
-  onDragStart: (e: React.PointerEvent, corner: Corner) => void;
+  onResizeStart: (e: React.PointerEvent) => void;
   onCursorModeChange: (mode: LocalCursorMode) => void;
 }) {
-  const outerSize = 16;
-  const innerSize = 8;
+  const hitboxSize = 24;
+  const capSize = 12;
+  const capStroke = 3;
   const style: React.CSSProperties = {
     position: "absolute",
-    left: x - outerSize / 2,
-    top: y - outerSize / 2,
-    width: outerSize,
-    height: outerSize,
-    backgroundColor: LOCAL_SELECTION_COLOR,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: corner === "nw" || corner === "se" ? "nwse-resize" : "nesw-resize",
+    left: x - hitboxSize / 2,
+    top: y - hitboxSize / 2,
+    width: hitboxSize,
+    height: hitboxSize,
+    cursor: "nwse-resize",
+    zIndex: 1,
   };
 
   return (
@@ -67,11 +57,11 @@ function CornerHandle({
       style={style}
       onPointerDown={(e) => {
         e.stopPropagation();
-        onCursorModeChange(getCursorModeForCorner(corner));
-        onDragStart(e, corner);
+        onCursorModeChange("resize-nwse");
+        onResizeStart(e);
       }}
       onPointerEnter={() => {
-        onCursorModeChange(getCursorModeForCorner(corner));
+        onCursorModeChange("resize-nwse");
       }}
       onPointerLeave={() => {
         onCursorModeChange("pointer");
@@ -79,9 +69,14 @@ function CornerHandle({
     >
       <div
         style={{
-          width: innerSize,
-          height: innerSize,
-          backgroundColor: "#ffffff",
+          position: "absolute",
+          right: hitboxSize / 2 - 1,
+          bottom: hitboxSize / 2 - 1,
+          width: capSize,
+          height: capSize,
+          borderRight: `${capStroke}px solid ${LOCAL_SELECTION_COLOR}`,
+          borderBottom: `${capStroke}px solid ${LOCAL_SELECTION_COLOR}`,
+          pointerEvents: "none",
         }}
       />
     </div>
@@ -140,7 +135,6 @@ export function SelectionOverlay({
   );
   const dragRef = useRef<{
     active: boolean;
-    corner: Corner;
     nodeId: string;
     startX: number;
     startY: number;
@@ -158,7 +152,7 @@ export function SelectionOverlay({
     [nodes, selectedNodeIds],
   );
 
-  // Single-select: show resize handles + action toolbar
+  // Single-select: show resize affordance + action toolbar
   const singleSelectedNode = selectedNodes.length === 1 ? selectedNodes[0] : null;
 
   useEffect(() => {
@@ -171,12 +165,11 @@ export function SelectionOverlay({
     singleSelectedNode != null && addNodePanelOwnerId === singleSelectedNode.id;
 
   const handleDragStart = useCallback(
-    (e: React.PointerEvent, corner: Corner) => {
+    (e: React.PointerEvent) => {
       if (!singleSelectedNode) return;
       e.currentTarget.setPointerCapture(e.pointerId);
       dragRef.current = {
         active: true,
-        corner,
         nodeId: singleSelectedNode.id,
         startX: e.clientX,
         startY: e.clientY,
@@ -200,25 +193,8 @@ export function SelectionOverlay({
 
       let newWidth = drag.startWidth;
       let newHeight = drag.startHeight;
-
-      switch (drag.corner) {
-        case "se":
-          newWidth = Math.max(100, drag.startWidth + dx);
-          newHeight = Math.max(80, drag.startHeight + dy);
-          break;
-        case "sw":
-          newWidth = Math.max(100, drag.startWidth - dx);
-          newHeight = Math.max(80, drag.startHeight + dy);
-          break;
-        case "ne":
-          newWidth = Math.max(100, drag.startWidth + dx);
-          newHeight = Math.max(80, drag.startHeight - dy);
-          break;
-        case "nw":
-          newWidth = Math.max(100, drag.startWidth - dx);
-          newHeight = Math.max(80, drag.startHeight - dy);
-          break;
-      }
+      newWidth = Math.max(100, drag.startWidth + dx);
+      newHeight = Math.max(80, drag.startHeight + dy);
 
       if (node.type === "problem" && node.data.status === "loaded") {
         newHeight = node.height;
@@ -314,35 +290,13 @@ export function SelectionOverlay({
         />
       ))}
 
-      {/* Single-select: corner handles + action toolbar */}
+      {/* Single-select: resize handle + action toolbar */}
       {singleSelectedNode && (
         <div className="pointer-events-auto">
-          <CornerHandle
-            corner="nw"
-            x={singleSelectedNode.x * transform.zoom + transform.x}
-            y={singleSelectedNode.y * transform.zoom + transform.y}
-            onDragStart={handleDragStart}
-            onCursorModeChange={onLocalCursorModeChange}
-          />
-          <CornerHandle
-            corner="ne"
-            x={(singleSelectedNode.x + singleSelectedNode.width) * transform.zoom + transform.x}
-            y={singleSelectedNode.y * transform.zoom + transform.y}
-            onDragStart={handleDragStart}
-            onCursorModeChange={onLocalCursorModeChange}
-          />
-          <CornerHandle
-            corner="sw"
-            x={singleSelectedNode.x * transform.zoom + transform.x}
-            y={(singleSelectedNode.y + singleSelectedNode.height) * transform.zoom + transform.y}
-            onDragStart={handleDragStart}
-            onCursorModeChange={onLocalCursorModeChange}
-          />
-          <CornerHandle
-            corner="se"
+          <ResizeHandle
             x={(singleSelectedNode.x + singleSelectedNode.width) * transform.zoom + transform.x}
             y={(singleSelectedNode.y + singleSelectedNode.height) * transform.zoom + transform.y}
-            onDragStart={handleDragStart}
+            onResizeStart={handleDragStart}
             onCursorModeChange={onLocalCursorModeChange}
           />
 

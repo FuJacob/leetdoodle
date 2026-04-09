@@ -9,12 +9,14 @@ import com.leetdoodle.worker.docker.EvalRunner.EvalSpec;
 import com.leetdoodle.worker.docker.EvalRunner.TestCase;
 import com.leetdoodle.worker.grpc.LeetcodeGrpcClient;
 import com.leetdoodle.worker.model.EvalJob;
+import com.leetdoodle.worker.model.ExecutionMode;
 import io.grpc.StatusRuntimeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -84,9 +86,15 @@ public class EvalConsumer {
                 .map(tc -> new TestCase(tc.getInput(), tc.getExpectedOutput()))
                 .toList();
 
+            ExecutionMode executionMode = resolveExecutionMode(job.executionMode());
+            if (executionMode == ExecutionMode.SAMPLE && testCases.size() > 3) {
+                testCases = testCases.subList(0, 3);
+            }
+
             EvalSpec spec = new EvalSpec(evalData.getPrompt(), evalData.getEntryPoint());
 
-            log.info("Loaded {} test cases for submission {}", testCases.size(), job.submissionId());
+            log.info("Loaded {} test cases for submission {} (mode={})",
+                testCases.size(), job.submissionId(), executionMode);
 
             if (testCases.isEmpty()) {
                 log.warn("No test cases for submission {} (problem={})",
@@ -130,5 +138,9 @@ public class EvalConsumer {
             return false;
         }
         return job.problemId() > 0;
+    }
+
+    private ExecutionMode resolveExecutionMode(@Nullable ExecutionMode requestedMode) {
+        return requestedMode == null ? ExecutionMode.SUBMIT : requestedMode;
     }
 }

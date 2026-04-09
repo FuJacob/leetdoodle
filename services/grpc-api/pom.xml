@@ -81,6 +81,17 @@
           <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+          <!--
+            Keep both generated source trees alive across the two protoc passes.
+
+            In practice this plugin clears the shared protobuf generated-sources
+            base before each execution unless told otherwise. When the grpc-java
+            pass runs second, it can wipe out the message classes emitted by the
+            plain compile pass. clean already removes stale files for clean
+            builds, so disabling per-execution clearing here is the safer
+            choice.
+          -->
+          <clearOutputDirectory>false</clearOutputDirectory>
         </configuration>
         <executions>
           <execution>
@@ -91,23 +102,6 @@
           </execution>
           <execution>
             <id>generate-grpc-stubs</id>
-            <!--
-              WHY clearOutputDirectory=false HERE?
-
-              compile-custom uses the shared base directory
-              target/generated-sources/protobuf. If it clears that base before
-              generating grpc-java stubs, it deletes the message classes
-              produced by the earlier compile goal. That leaves javac with only
-              ProblemServiceGrpc.java on the source path, which then fails
-              because GetProblemEvalRequest/GetProblemEvalResponse are missing.
-
-              We keep the normal clean phase to remove stale generated sources
-              for clean builds, and we disable clearing only for the second
-              pass so both outputs coexist.
-            -->
-            <configuration>
-              <clearOutputDirectory>false</clearOutputDirectory>
-            </configuration>
             <goals>
               <goal>compile-custom</goal>
             </goals>

@@ -1,12 +1,10 @@
 import { useCallback, useRef, useState } from "react";
-import type {
-  CanvasNode,
-  ProblemData,
-  ProblemNode,
-} from "../../shared/nodes";
+import { IconPuzzle } from "@tabler/icons-react";
+import type { CanvasNode, ProblemData, ProblemNode } from "../../shared/nodes";
 import { extractSlug, parseStats, difficultyClass } from "./utils";
 import { useNodeContentSizeSync } from "../../canvas/hooks/useNodeContentSizeSync";
 import { LEETCODE_SERVICE_URL } from "../../shared/config/env";
+import { NodeHeader } from "../shared/NodeHeader";
 
 const MIN_NODE_WIDTH = 100;
 const MIN_NODE_HEIGHT = 80;
@@ -58,7 +56,9 @@ export function ProblemNodeRenderer({
     }
     setLoading(true);
     try {
-      const res = await fetch(`${LEETCODE_SERVICE_URL}/api/problems/slug/${slug}`);
+      const res = await fetch(
+        `${LEETCODE_SERVICE_URL}/api/problems/slug/${slug}`,
+      );
       if (!res.ok) {
         onUpdate(node.id, {
           data: { status: "error", message: "Problem not found." },
@@ -94,6 +94,10 @@ export function ProblemNodeRenderer({
 
   const base =
     "absolute border border-(--lc-border-default) bg-(--lc-surface-1) overflow-hidden";
+  const handleHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    onPointerDown(e, node);
+  };
+
   // ── empty / error: URL input ─────────────────────────────────────────────
 
   if (node.data.status === "empty" || node.data.status === "error") {
@@ -109,12 +113,11 @@ export function ProblemNodeRenderer({
           ...dragStyle,
         }}
       >
-        <div
-          className="cursor-grab select-none border-b border-(--lc-border-default) px-3 py-2 text-xs font-semibold text-(--lc-text-secondary) active:cursor-grabbing"
-          onPointerDown={(e) => onPointerDown(e, node)}
-        >
-          Problem
-        </div>
+        <NodeHeader
+          title="Problem"
+          Icon={IconPuzzle}
+          onPointerDown={handleHeaderPointerDown}
+        />
         {/* Stop pointer-down so typing in the input doesn't start a drag */}
         <div
           className="flex-1 min-h-0 p-3"
@@ -135,7 +138,9 @@ export function ProblemNodeRenderer({
           >
             {loading ? "Loading…" : "Create"}
           </button>
-          {error && <div className="mt-1 text-xs text-(--lc-danger)">{error}</div>}
+          {error && (
+            <div className="mt-1 text-xs text-(--lc-danger)">{error}</div>
+          )}
         </div>
       </div>
     );
@@ -153,37 +158,42 @@ export function ProblemNodeRenderer({
       className={`${base} flex flex-col`}
       style={{ left: node.x, top: node.y, width: node.width, ...dragStyle }}
     >
-      <div
-        className="flex cursor-grab select-none items-baseline justify-between border-b border-(--lc-border-default) px-3 py-2 active:cursor-grabbing"
-        onPointerDown={(e) => onPointerDown(e, node)}
-      >
-        <div className="text-sm font-medium text-(--lc-text-primary)">
-          {title}
-        </div>
-        <div className={`text-xs ml-2 shrink-0 ${difficultyClass(difficulty)}`}>{difficulty}</div>
-      </div>
+      <NodeHeader
+        title="Problem"
+        Icon={IconPuzzle}
+        onPointerDown={handleHeaderPointerDown}
+      />
 
       <div className="p-3" onPointerDown={(e) => e.stopPropagation()}>
-        {tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
+        <div className="mb-3">
+          <h3 className="text-base font-semibold text-(--lc-text-primary)">
+            {title}
+          </h3>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
+            <span
+              className={`rounded-full border border-current px-2 py-0.5 font-semibold ${difficultyClass(difficulty)}`}
+            >
+              {difficulty}
+            </span>
+
             {tags.map((t) => (
               <span
                 key={t.id}
-                className="border border-(--lc-border-default) px-1 text-[10px] text-(--lc-text-secondary)"
+                className="rounded-full border border-(--lc-border-default) px-2 py-0.5 text-[10px] text-(--lc-text-secondary)"
               >
                 {t.name}
               </span>
             ))}
           </div>
-        )}
+        </div>
 
         {/* Render HTML content directly — safe since it's from our own DB */}
         <div
-          className="mb-2 text-xs leading-relaxed text-(--lc-text-secondary) [&_a]:text-(--lc-link) [&_code]:bg-(--lc-surface-2) [&_code]:px-1 [&_code]:text-(--lc-text-secondary) [&_ol]:list-decimal [&_ol]:pl-4 [&_pre]:overflow-x-auto [&_pre]:bg-(--lc-surface-2) [&_pre]:p-2 [&_strong]:text-(--lc-text-primary) [&_ul]:list-disc [&_ul]:pl-4"
+          className="mb-3 text-xs leading-relaxed text-(--lc-text-secondary) [&_a]:text-(--lc-link) [&_code]:bg-(--lc-surface-2) [&_code]:px-1 [&_code]:text-(--lc-text-secondary) [&_ol]:list-decimal [&_ol]:pl-4 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-(--lc-surface-2) [&_pre]:p-2 [&_strong]:text-(--lc-text-primary) [&_ul]:list-disc [&_ul]:pl-4"
           dangerouslySetInnerHTML={{ __html: content }}
         />
 
-        <div className="flex gap-3 text-[10px] text-(--lc-text-muted)">
+        <div className="flex flex-wrap gap-3 text-[10px] text-(--lc-text-muted)">
           <span>▲ {likes}</span>
           <span>▼ {dislikes}</span>
           {parsedStats && <span>✓ {parsedStats.acRate}</span>}

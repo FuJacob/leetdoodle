@@ -1,5 +1,6 @@
 package com.leetdoodle.submissions.controller;
 
+import com.leetdoodle.submissions.model.ExecutionMode;
 import com.leetdoodle.submissions.model.Submission;
 import com.leetdoodle.submissions.service.SubmissionService;
 import org.springframework.web.bind.annotation.*;
@@ -39,7 +40,13 @@ public class SubmissionController {
      */
     @PostMapping
     public Map<String, String> submit(@RequestBody SubmitRequest req) {
-        UUID id = service.submit(req.questionId(), req.userId(), req.language(), req.code());
+        UUID id = service.submit(
+            req.questionId(),
+            req.userId(),
+            req.language(),
+            req.code(),
+            req.executionMode()
+        );
         return Map.of("submissionId", id.toString());
     }
 
@@ -50,6 +57,12 @@ public class SubmissionController {
         return new SubmissionStatusResponse(submission.status(), submission.result());
     }
 
-    public record SubmitRequest(int questionId, String userId, String language, String code) {}
+    public record SubmitRequest(
+        int questionId,
+        String userId,
+        String language,
+        String code,
+        @Nullable ExecutionMode executionMode
+    ) {}
     public record SubmissionStatusResponse(String status, @Nullable String result) {}
 }

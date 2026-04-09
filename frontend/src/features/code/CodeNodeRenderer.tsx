@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
+import { IconCloudUpload, IconCode, IconPlayerPlayFilled } from "@tabler/icons-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EditorView, basicSetup } from "codemirror";
 import { indentWithTab } from "@codemirror/commands";
 import {
@@ -11,6 +12,7 @@ import { tags } from "@lezer/highlight";
 import { keymap } from "@codemirror/view";
 import type { TextEdit } from "../../shared/crdt";
 import { useTheme } from "../../theme/useTheme";
+import { NodeHeader } from "../shared/NodeHeader";
 import type {
   CanvasNode,
   CodeNode,
@@ -26,6 +28,7 @@ import { SUBMISSIONS_SERVICE_URL } from "../../shared/config/env";
 
 const SUBMISSIONS_URL = `${SUBMISSIONS_SERVICE_URL}/api/submissions`;
 const TERMINAL_STATUSES = new Set(["ACCEPTED", "WRONG_ANSWER", "RUNTIME_ERROR", "TIME_LIMIT_EXCEEDED"]);
+type ExecutionMode = "SAMPLE" | "SUBMIT";
 
 function statusToRunState(status: string): TestResultsRunState {
   switch (status) {
@@ -93,8 +96,8 @@ function patchResultsNode(
       mode: "result",
       runState: "idle",
       runtimeMs: null,
-      selectedCaseIndex: 0,
-      cases: [],
+      testcaseCases: [],
+      resultCases: [],
     };
 
   onUpdate(nodeId, {
@@ -103,6 +106,28 @@ function patchResultsNode(
       ...patch,
     },
   } as Partial<CanvasNode>);
+}
+
+function buildVisibleResultCases(
+  mode: ExecutionMode,
+  runState: TestResultsRunState,
+  cases: TestResultsCase[],
+): { testcaseCases: TestResultsCase[]; resultCases: TestResultsCase[] } {
+  const testcaseCases = cases.slice(0, 3);
+
+  if (mode === "SAMPLE") {
+    return { testcaseCases, resultCases: testcaseCases };
+  }
+
+  if (runState === "accepted") {
+    return { testcaseCases, resultCases: [] };
+  }
+
+  const firstFailedCase = cases.find((testCase) => !testCase.passed) ?? null;
+  return {
+    testcaseCases,
+    resultCases: firstFailedCase ? [firstFailedCase] : [],
+  };
 }
 
 export function CodeNodeRenderer({
@@ -120,6 +145,7 @@ export function CodeNodeRenderer({
   const viewRef = useRef<EditorView | null>(null);
   const applyingRemoteRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [pendingMode, setPendingMode] = useState<ExecutionMode | null>(null);
 
   // Cancel any in-flight poll when the component unmounts
   useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current); }, []);
@@ -261,7 +287,7 @@ export function CodeNodeRenderer({
     applyingRemoteRef.current = false;
   }, [node.data.content]);
 
-  async function handleRunClick() {
+  async function handleRunClick(mode: ExecutionMode) {
     if (!connectedProblem || connectedProblem.data.status !== "loaded") return;
     if (intervalRef.current) return; // already polling
 
@@ -272,13 +298,14 @@ export function CodeNodeRenderer({
     const spawnedNodeId = existingResults ? undefined : onSpawn("test-results", node.id);
     const resultsNodeId = existingResults?.id ?? spawnedNodeId;
     if (!resultsNodeId) return;
+    setPendingMode(mode);
 
     patchResultsNode(resultsNodeId, onUpdate, {
       mode: "result",
       runState: "running",
       runtimeMs: null,
-      selectedCaseIndex: 0,
-      cases: [],
+      testcaseCases: [],
+      resultCases: [],
     }, existingResults?.data);
 
     try {
@@ -290,6 +317,7 @@ export function CodeNodeRenderer({
           userId: "anonymous",
           language: node.data.language,
           code: codeForSubmission,
+          executionMode: mode,
         }),
       });
       if (!postRes.ok) throw new Error(`Submit failed: ${postRes.status}`);
@@ -305,6 +333,7 @@ export function CodeNodeRenderer({
 
           clearInterval(intervalRef.current!);
           intervalRef.current = null;
+          setPendingMode(null);
 
           const runState = statusToRunState(submission.status);
           const parsed = submission.result
@@ -321,14 +350,17 @@ export function CodeNodeRenderer({
             passed: c.passed,
             error: c.error,
           }));
-
-          const firstFail = cases.findIndex((c) => !c.passed);
+          const { testcaseCases, resultCases } = buildVisibleResultCases(
+            mode,
+            runState,
+            cases,
+          );
           patchResultsNode(resultsNodeId, onUpdate, {
             mode: "result",
             runState,
             runtimeMs: 0, // TODO: implement runtime tracking in worker
-            cases,
-            selectedCaseIndex: firstFail >= 0 ? firstFail : 0,
+            testcaseCases,
+            resultCases,
             errorMessage: parsed?.errorMessage ?? undefined,
             lastExecutedInput: cases.find((c) => c.error != null)?.input,
           }, existingResults?.data);
@@ -339,12 +371,13 @@ export function CodeNodeRenderer({
       }, 500);
 
     } catch (error) {
+      setPendingMode(null);
       patchResultsNode(resultsNodeId, onUpdate, {
         mode: "result",
         runState: "runtime_error",
         runtimeMs: 0,
-        selectedCaseIndex: 0,
-        cases: [],
+        testcaseCases: [],
+        resultCases: [],
         errorMessage: error instanceof Error ? error.message : String(error),
       }, existingResults?.data);
     }
@@ -362,23 +395,37 @@ export function CodeNodeRenderer({
       }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
-      <div className="flex items-center justify-between border-b border-(--lc-border-default) p-2">
-        <span className="text-xs font-semibold text-(--lc-text-secondary)">Code</span>
-        <div className="flex items-center gap-2">
-          {canRun && (
-            <button
-              type="button"
-              className="rounded border border-(--lc-border-default) bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-text-primary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) disabled:opacity-50"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={handleRunClick}
-              disabled={isRunning}
-            >
-              {isRunning ? "Running…" : "Run"}
-            </button>
-          )}
-          <span className="text-[10px] text-(--lc-text-muted)">{node.data.language}</span>
-        </div>
-      </div>
+      <NodeHeader
+        title="Code"
+        Icon={IconCode}
+        right={(
+          <div className="flex items-center gap-2">
+            {canRun && (
+              <div className="flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded border border-(--lc-border-default) bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-text-primary) transition hover:border-(--lc-border-focus) hover:text-(--lc-accent) disabled:opacity-50"
+                  onClick={() => handleRunClick("SAMPLE")}
+                  disabled={isRunning}
+                >
+                  <IconPlayerPlayFilled size={12} className="shrink-0" />
+                  {pendingMode === "SAMPLE" && isRunning ? "Running…" : "Run"}
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded border border-(--lc-border-default) bg-(--lc-surface-3) px-2 py-1 text-[10px] font-semibold text-(--lc-success) transition hover:border-(--lc-border-focus) hover:text-(--lc-success) disabled:opacity-50"
+                  onClick={() => handleRunClick("SUBMIT")}
+                  disabled={isRunning}
+                >
+                  <IconCloudUpload size={12} className="shrink-0" />
+                  {pendingMode === "SUBMIT" && isRunning ? "Submitting…" : "Submit"}
+                </button>
+              </div>
+            )}
+            <span className="text-[10px] text-(--lc-text-muted)">{node.data.language}</span>
+          </div>
+        )}
+      />
       <div className="flex-1 min-h-0" onPointerDown={(e) => e.stopPropagation()}>
         <div ref={containerRef} className="h-full overflow-auto text-sm" />
       </div>

@@ -19,7 +19,7 @@ interface CanvasNodeBase {
 // ---------------------------------------------------------------------------
 
 export interface NoteNode extends CanvasNodeBase {
-  type: 'note';
+  type: "note";
   data: { content: string };
 }
 
@@ -41,10 +41,10 @@ export interface ProblemStats {
 // Discriminated union on `status` — TypeScript narrows this automatically
 // in switch/if statements, so no casts are needed in the renderer.
 export type ProblemData =
-  | { status: 'empty' }
-  | { status: 'error'; message: string }
+  | { status: "empty" }
+  | { status: "error"; message: string }
   | {
-      status: 'loaded';
+      status: "loaded";
       slug: string;
       questionId: number;
       title: string;
@@ -58,7 +58,7 @@ export type ProblemData =
     };
 
 export interface ProblemNode extends CanvasNodeBase {
-  type: 'problem';
+  type: "problem";
   data: ProblemData;
 }
 
@@ -67,7 +67,7 @@ export interface ProblemNode extends CanvasNodeBase {
 // ---------------------------------------------------------------------------
 
 export interface CodeNode extends CanvasNodeBase {
-  type: 'code';
+  type: "code";
   data: {
     content: string;
     language: string;
@@ -86,29 +86,29 @@ export interface TestResultsCase {
   error?: string | null;
 }
 
-export type TestResultsMode = 'testcase' | 'result';
+export type TestResultsMode = "testcase" | "result";
 
 export type TestResultsRunState =
-  | 'idle'
-  | 'running'
-  | 'accepted'
-  | 'wrong_answer'
-  | 'runtime_error'
-  | 'time_limit_exceeded';
+  | "idle"
+  | "running"
+  | "accepted"
+  | "wrong_answer"
+  | "runtime_error"
+  | "time_limit_exceeded";
 
 export interface TestResultsData {
   mode: TestResultsMode;
   runState: TestResultsRunState;
   runtimeMs: number | null;
-  selectedCaseIndex: number;
-  cases: TestResultsCase[];
+  testcaseCases: TestResultsCase[];
+  resultCases: TestResultsCase[];
   // Used by runtime-error view.
   errorMessage?: string;
   lastExecutedInput?: string;
 }
 
 export interface TestResultsNode extends CanvasNodeBase {
-  type: 'test-results';
+  type: "test-results";
   data: TestResultsData;
 }
 
@@ -117,7 +117,7 @@ export interface TestResultsNode extends CanvasNodeBase {
 // ---------------------------------------------------------------------------
 
 export interface DrawNode extends CanvasNodeBase {
-  type: 'draw';
+  type: "draw";
   data: {
     // Points in node-local coordinates (offset from node.x, node.y in world space)
     points: Array<[number, number]>;
@@ -129,8 +129,13 @@ export interface DrawNode extends CanvasNodeBase {
 // Union + helpers
 // ---------------------------------------------------------------------------
 
-export type CanvasNode = NoteNode | ProblemNode | CodeNode | TestResultsNode | DrawNode;
-export type NodeType = CanvasNode['type'];
+export type CanvasNode =
+  | NoteNode
+  | ProblemNode
+  | CodeNode
+  | TestResultsNode
+  | DrawNode;
+export type NodeType = CanvasNode["type"];
 
 export interface Edge {
   id: string;
@@ -141,36 +146,36 @@ export interface Edge {
 export function createNoteNode(x: number, y: number): NoteNode {
   return {
     id: String(nextId++),
-    type: 'note',
+    type: "note",
     x,
     y,
     width: 280,
     height: 180,
-    data: { content: '' },
+    data: { content: "" },
   };
 }
 
 export function createProblemNode(x: number, y: number): ProblemNode {
   return {
     id: String(nextId++),
-    type: 'problem',
+    type: "problem",
     x,
     y,
     width: 460,
     height: 180,
-    data: { status: 'empty' },
+    data: { status: "empty" },
   };
 }
 
 export function createCodeNode(x: number, y: number): CodeNode {
   return {
     id: String(nextId++),
-    type: 'code',
+    type: "code",
     x,
     y,
     width: 560,
     height: 320,
-    data: { content: DEFAULT_CODE_CONTENT, language: 'python' },
+    data: { content: DEFAULT_CODE_CONTENT, language: "python" },
   };
 }
 
@@ -184,7 +189,7 @@ export function createDrawNode(
 ): DrawNode {
   return {
     id: crypto.randomUUID(),
-    type: 'draw',
+    type: "draw",
     x,
     y,
     width,
@@ -196,17 +201,17 @@ export function createDrawNode(
 export function createTestResultsNode(x: number, y: number): TestResultsNode {
   return {
     id: String(nextId++),
-    type: 'test-results',
+    type: "test-results",
     x,
     y,
     width: 540,
     height: 420,
     data: {
-      mode: 'testcase',
-      runState: 'idle',
+      mode: "testcase",
+      runState: "idle",
       runtimeMs: null,
-      selectedCaseIndex: 0,
-      cases: [],
+      testcaseCases: [],
+      resultCases: [],
     },
   };
 }

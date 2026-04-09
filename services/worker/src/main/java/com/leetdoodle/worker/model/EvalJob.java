@@ -5,5 +5,6 @@ public record EvalJob(
     String submissionId,
     int    problemId,
     String language,
-    String code
+    String code,
+    ExecutionMode executionMode
 ) {}

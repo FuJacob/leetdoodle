@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react';
-import type { TextEdit } from '../../shared/crdt';
-import type { CanvasNode, NoteNode } from '../../shared/nodes';
+import { IconNote } from "@tabler/icons-react";
+import { useEffect, useRef } from "react";
+import type { TextEdit } from "../../shared/crdt";
+import type { CanvasNode, NoteNode } from "../../shared/nodes";
+import { NodeHeader } from "../shared/NodeHeader";
 
 interface Props {
   node: NoteNode;
@@ -34,11 +36,13 @@ function diffToSingleEdit(prev: string, next: string): TextEdit[] {
     nextSuffix--;
   }
 
-  return [{
-    from: prefix,
-    to: prevSuffix,
-    insert: next.slice(prefix, nextSuffix),
-  }];
+  return [
+    {
+      from: prefix,
+      to: prevSuffix,
+      insert: next.slice(prefix, nextSuffix),
+    },
+  ];
 }
 
 export function NoteNodeRenderer({
@@ -65,9 +69,7 @@ export function NoteNodeRenderer({
       }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
-      <div className="border-b border-(--lc-border-default) px-3 py-2 text-xs font-semibold text-(--lc-text-secondary)">
-        Note
-      </div>
+      <NodeHeader title="Note" Icon={IconNote} />
       <div
         className="flex-1 min-h-0 p-3"
         onPointerDown={(e) => e.stopPropagation()}

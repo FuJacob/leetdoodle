@@ -162,3 +162,7 @@ body.lc-is-panning * {
   -webkit-user-select: none;
   -webkit-user-drag: none;
 }
+
+* {
+  outline: 1px solid red;
+}

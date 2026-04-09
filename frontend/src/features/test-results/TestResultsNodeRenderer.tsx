@@ -1,8 +1,10 @@
+import { IconListCheck } from "@tabler/icons-react";
 import type {
   CanvasNode,
   TestResultsData,
   TestResultsNode,
 } from "../../shared/nodes";
+import { NodeHeader } from "../shared/NodeHeader";
 
 interface Props {
   node: TestResultsNode;
@@ -16,39 +18,6 @@ interface Props {
 
 function panel(text: string | null) {
   return text ?? "—";
-}
-
-function CaseTab({
-  label,
-  active,
-  passed,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  passed: boolean | null;
-  onClick?: () => void;
-}) {
-  const indicator =
-    passed === true ? <span className="text-(--lc-success)">✓</span>
-    : passed === false ? <span className="text-(--lc-danger)">✕</span>
-    : null;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-1 border px-2 py-0.5 text-[10px] font-semibold ${
-        active
-          ? "border-(--lc-border-strong) bg-(--lc-surface-3) text-(--lc-text-primary)"
-          : "border-(--lc-border-default) bg-transparent text-(--lc-text-secondary)"
-      }`}
-      disabled={!onClick}
-    >
-      {indicator}
-      {label}
-    </button>
-  );
 }
 
 function ValueBlock({ label, value }: { label: string; value: string | null }) {
@@ -79,8 +48,10 @@ export function TestResultsNodeRenderer({
   dragStyle,
 }: Props) {
   const { data } = node;
-  const hasCases = data.cases.length > 0;
-  const selected = data.cases[data.selectedCaseIndex] ?? null;
+  const testcaseCases = data.testcaseCases;
+  const resultCases = data.resultCases;
+  const selectedTestcase = testcaseCases[0] ?? null;
+  const selectedResult = resultCases[0] ?? null;
   const accepted = data.runState === "accepted";
   const runtimeError = data.runState === "runtime_error";
   const timeLimitExceeded = data.runState === "time_limit_exceeded";
@@ -111,9 +82,19 @@ export function TestResultsNodeRenderer({
       }}
       onPointerDown={(e) => onPointerDown(e, node)}
     >
-      {/* Header — mode tabs */}
-      <div className="flex items-center justify-between border-b border-(--lc-border-default) p-2">
-        <div className="flex items-center gap-3">
+      {/* Header */}
+      <div>
+        <NodeHeader
+          title="Test Results"
+          Icon={IconListCheck}
+          right={
+            statusLabel
+              ? <span className={`text-[10px] font-semibold ${statusColor}`}>{statusLabel}</span>
+              : undefined
+          }
+          className="border-b-0"
+        />
+        <div className="flex items-center gap-3 border-b border-(--lc-border-default) px-3 pb-2">
           <button
             type="button"
             className={`text-xs font-semibold ${
@@ -140,9 +121,6 @@ export function TestResultsNodeRenderer({
             Test Result
           </button>
         </div>
-        {statusLabel && (
-          <span className={`text-[10px] font-semibold ${statusColor}`}>{statusLabel}</span>
-        )}
       </div>
 
       {/* Body */}
@@ -150,33 +128,14 @@ export function TestResultsNodeRenderer({
         className="flex-1 min-h-0 overflow-y-auto p-3"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        {/* Case selector row — shared between both modes */}
-        {hasCases && (
-          <div className="mb-3 max-h-13 overflow-y-auto overflow-x-hidden pr-1">
-            <div className="flex flex-wrap content-start gap-1">
-              {data.cases.map((c, idx) => (
-                <CaseTab
-                  key={idx}
-                  label={`Case ${idx + 1}`}
-                  active={idx === data.selectedCaseIndex}
-                  passed={data.mode === "result" ? c.passed : null}
-                  onClick={() =>
-                    updateResultsData(node, onUpdate, { selectedCaseIndex: idx })
-                  }
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Testcase mode */}
         {data.mode === "testcase" && (
           <>
-            {!hasCases && (
+            {testcaseCases.length === 0 && (
               <p className="text-xs text-(--lc-text-muted)">Run to see test cases.</p>
             )}
-            {selected && (
-              <ValueBlock label="Input" value={selected.input} />
+            {selectedTestcase && (
+              <ValueBlock label="Input" value={selectedTestcase.input} />
             )}
           </>
         )}
@@ -195,17 +154,17 @@ export function TestResultsNodeRenderer({
               </div>
             )}
 
-            {selected && (
+            {selectedResult && (
               <>
                 <ValueBlock
                   label={isError ? "Last Executed Input" : "Input"}
-                  value={isError ? (data.lastExecutedInput ?? selected.input) : selected.input}
+                  value={isError ? (data.lastExecutedInput ?? selectedResult.input) : selectedResult.input}
                 />
 
                 {!isError && (
                   <>
-                    <ValueBlock label="Output" value={selected.output} />
-                    <ValueBlock label="Expected" value={selected.expected} />
+                    <ValueBlock label="Output" value={selectedResult.output} />
+                    <ValueBlock label="Expected" value={selectedResult.expected} />
                   </>
                 )}
 
@@ -221,8 +180,12 @@ export function TestResultsNodeRenderer({
               </>
             )}
 
-            {!hasCases && !running && (
-              <p className="text-xs text-(--lc-text-muted)">No results yet.</p>
+            {!selectedResult && accepted && (
+              <p className="text-xs text-(--lc-text-secondary)">All submitted test cases passed.</p>
+            )}
+
+            {!selectedResult && !accepted && !running && (
+              <p className="text-xs text-(--lc-text-muted)">No failing case to show yet.</p>
             )}
           </>
         )}
