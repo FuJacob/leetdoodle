@@ -8,6 +8,17 @@ export interface RemoteCursor {
   y: number;
 }
 
+export interface RemoteCursorSample {
+  x: number;
+  y: number;
+  receivedAt: number;
+}
+
+export interface RemoteCursorTrack {
+  userId: string;
+  samples: RemoteCursorSample[];
+}
+
 export interface RemoteStroke {
   points: Array<[number, number]>;
   thickness: number;
