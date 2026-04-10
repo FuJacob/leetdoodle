@@ -14,7 +14,6 @@ Service ports:
 - leetcode-service gRPC: `9090`
 - submissions: `8082`
 - worker: `8083`
-- canvas-service HTTP: `8084`
 - canvas-service gRPC: `9091`
 
 Helper scripts:
@@ -62,7 +61,6 @@ Helper scripts:
 
 ## Known Current Constraints
 
-- Collab has not been rerouted to canvas-service yet, so live structural websocket traffic can still diverge from the new durable canvas write path until the next integration pass.
 - Collab op log is in-memory; process restarts lose replay history.
 - No DLQ configured for eval pipeline.
 - No unified backend error envelope standard yet.

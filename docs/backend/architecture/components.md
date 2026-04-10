@@ -6,7 +6,6 @@ This page zooms into each Spring service and maps internal components to their r
 
 ```mermaid
 flowchart LR
-    CC[CanvasController]
     CG[CanvasGrpcService]
     CS[CanvasService @Transactional]
     CAR[CanvasRepository]
@@ -15,7 +14,6 @@ flowchart LR
     COR[CanvasOperationRepository]
     PG[(PostgreSQL canvas schema)]
 
-    CC --> CS
     CG --> CS
     CS --> CAR
     CS --> CNR
@@ -27,7 +25,6 @@ flowchart LR
     COR --> PG
 ```
 
-- `CanvasController` exposes a small HTTP debug surface for manual inspection.
 - `CanvasGrpcService` is the internal service-to-service contract used by collab.
 - `CanvasService.applyStructuralOperation()` reserves a new version, appends to `canvas_ops`, applies the materialized write, and commits in one transaction.
 - `CanvasRepository` owns canvas-level metadata such as `head_version`.
