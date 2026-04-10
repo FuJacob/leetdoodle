@@ -587,8 +587,8 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         response.put("type", "canvas_bootstrap");
         response.put("canvasId", snapshot.canvasId());
         response.put("headVersion", snapshot.headVersion());
-        response.set("nodes", snapshot.nodes() == null ? objectMapper.createArrayNode() : snapshot.nodes().deepCopy());
-        response.set("edges", snapshot.edges() == null ? objectMapper.createArrayNode() : snapshot.edges().deepCopy());
+        response.set("nodes", frontendNodesFromDurableSnapshot(snapshot.nodes()));
+        response.set("edges", frontendEdgesFromDurableSnapshot(snapshot.edges()));
         sendToSession(session, new TextMessage(
             Objects.requireNonNull(objectMapper.writeValueAsString(response))
         ));
@@ -675,7 +675,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
 
     private JsonNode structuralPayloadFor(String eventType, JsonNode root) {
         return switch (eventType) {
-            case "node_create" -> requireField(root, "node", eventType).deepCopy();
+            case "node_create" -> durableNodeCreatePayload(requireField(root, "node", eventType), eventType);
             case "node_move" -> {
                 ObjectNode payload = objectMapper.createObjectNode();
                 payload.put("nodeId", requireTextField(root, "nodeId", eventType));
@@ -693,7 +693,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
                 payload.put("nodeId", requireTextField(root, "nodeId", eventType));
                 yield payload;
             }
-            case "edge_create" -> requireField(root, "edge", eventType).deepCopy();
+            case "edge_create" -> durableEdgeCreatePayload(requireField(root, "edge", eventType), eventType);
             case "edge_delete" -> {
                 ObjectNode payload = objectMapper.createObjectNode();
                 payload.put("edgeId", requireTextField(root, "edgeId", eventType));
@@ -720,7 +720,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         switch (operationType) {
             case "NODE_CREATE" -> {
                 outbound.put("type", "node_create");
-                outbound.set("node", payload.deepCopy());
+                outbound.set("node", frontendNodeFromDurablePayload(payload));
             }
             case "NODE_MOVE" -> {
                 outbound.put("type", "node_move");
@@ -741,7 +741,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
             }
             case "EDGE_CREATE" -> {
                 outbound.put("type", "edge_create");
-                outbound.set("edge", payload.deepCopy());
+                outbound.set("edge", frontendEdgeFromDurablePayload(payload));
             }
             case "EDGE_DELETE" -> {
                 outbound.put("type", "edge_delete");
@@ -754,6 +754,72 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         }
 
         return outbound;
+    }
+
+    private ArrayNode frontendNodesFromDurableSnapshot(JsonNode nodes) {
+        ArrayNode frontendNodes = objectMapper.createArrayNode();
+        if (nodes == null || nodes.isNull() || !nodes.isArray()) {
+            return frontendNodes;
+        }
+
+        for (JsonNode node : nodes) {
+            frontendNodes.add(frontendNodeFromDurablePayload(node));
+        }
+        return frontendNodes;
+    }
+
+    private ArrayNode frontendEdgesFromDurableSnapshot(JsonNode edges) {
+        ArrayNode frontendEdges = objectMapper.createArrayNode();
+        if (edges == null || edges.isNull() || !edges.isArray()) {
+            return frontendEdges;
+        }
+
+        for (JsonNode edge : edges) {
+            frontendEdges.add(frontendEdgeFromDurablePayload(edge));
+        }
+        return frontendEdges;
+    }
+
+    private ObjectNode durableNodeCreatePayload(ObjectNode node, String eventType) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("nodeId", requireTextField(node, "id", eventType + ".node"));
+        payload.put("nodeType", requireTextField(node, "type", eventType + ".node"));
+        payload.put("x", requireNumericField(node, "x", eventType + ".node"));
+        payload.put("y", requireNumericField(node, "y", eventType + ".node"));
+        payload.put("width", requireNumericField(node, "width", eventType + ".node"));
+        payload.put("height", requireNumericField(node, "height", eventType + ".node"));
+        JsonNode data = node.get("data");
+        payload.set("data", data == null || data.isNull() ? objectMapper.createObjectNode() : data.deepCopy());
+        return payload;
+    }
+
+    private ObjectNode durableEdgeCreatePayload(ObjectNode edge, String eventType) {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("edgeId", requireTextField(edge, "id", eventType + ".edge"));
+        payload.put("fromNodeId", requireTextField(edge, "fromNodeId", eventType + ".edge"));
+        payload.put("toNodeId", requireTextField(edge, "toNodeId", eventType + ".edge"));
+        return payload;
+    }
+
+    private ObjectNode frontendNodeFromDurablePayload(JsonNode payload) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("id", requireTextField(payload, "nodeId", "durable_node"));
+        node.put("type", requireTextField(payload, "nodeType", "durable_node"));
+        node.put("x", requireNumericField(payload, "x", "durable_node"));
+        node.put("y", requireNumericField(payload, "y", "durable_node"));
+        node.put("width", requireNumericField(payload, "width", "durable_node"));
+        node.put("height", requireNumericField(payload, "height", "durable_node"));
+        JsonNode data = payload.get("data");
+        node.set("data", data == null || data.isNull() ? objectMapper.createObjectNode() : data.deepCopy());
+        return node;
+    }
+
+    private ObjectNode frontendEdgeFromDurablePayload(JsonNode payload) {
+        ObjectNode edge = objectMapper.createObjectNode();
+        edge.put("id", requireTextField(payload, "edgeId", "durable_edge"));
+        edge.put("fromNodeId", requireTextField(payload, "fromNodeId", "durable_edge"));
+        edge.put("toNodeId", requireTextField(payload, "toNodeId", "durable_edge"));
+        return edge;
     }
 
     private ObjectNode requireField(JsonNode node, String field, String eventType) {
