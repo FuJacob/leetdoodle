@@ -5,7 +5,7 @@ import resizeNwseCursorImage from "../assets/Cursor/Resize/North West South East
 import grabCursorImage from "../assets/Cursor/Grab/Grab.png";
 import grabbingCursorImage from "../assets/Cursor/Grab/Grabbing.png";
 import {
-  useRemoteCursors,
+  useInterpolatedRemoteCursors,
   type CursorPresenceStore,
 } from "./presence/cursorPresenceStore";
 import type { CollabUser } from "./presence/types";
@@ -60,8 +60,12 @@ function CursorGlyph({
     <div
       className={`pointer-events-none absolute flex items-start ${zClassName}`}
       style={{
-        left: x - CURSOR_TIP_OFFSET_X,
-        top: y - CURSOR_TIP_OFFSET_Y,
+        left: 0,
+        top: 0,
+        transform: `translate3d(${x - CURSOR_TIP_OFFSET_X}px, ${
+          y - CURSOR_TIP_OFFSET_Y
+        }px, 0)`,
+        willChange: "transform",
       }}
     >
       <svg
@@ -100,7 +104,7 @@ export function CursorOverlay({
   localCursorMode,
 }: Props) {
   const [localCursor, setLocalCursor] = useState<LocalCursor | null>(null);
-  const cursors = useRemoteCursors(cursorStore);
+  const cursors = useInterpolatedRemoteCursors(cursorStore);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -169,8 +173,12 @@ export function CursorOverlay({
             aria-hidden="true"
             draggable={false}
             style={{
-              left: localCursor.x - CURSOR_TIP_OFFSET_X,
-              top: localCursor.y - CURSOR_TIP_OFFSET_Y,
+              left: 0,
+              top: 0,
+              transform: `translate3d(${localCursor.x - CURSOR_TIP_OFFSET_X}px, ${
+                localCursor.y - CURSOR_TIP_OFFSET_Y
+              }px, 0)`,
+              willChange: "transform",
             }}
           />
         ))}

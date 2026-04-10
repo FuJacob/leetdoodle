@@ -1,58 +1,140 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Transform } from "../types";
 import type {
+  CanvasCommittedStructuralEvent,
   CanvasEventHandlers,
   CanvasInboundEvent,
   CanvasOutboundEvent,
+} from "../../shared/events";
+import {
+  isCommittedStructuralInboundEvent,
 } from "../../shared/events";
 import { screenToWorld } from "../utils/coordinates";
 import { COLLAB_WS_URL } from "../../shared/config/env";
 import type { CursorPresenceStore } from "../presence/cursorPresenceStore";
 import type { CollabUser, RemoteStroke } from "../presence/types";
+import type { CanvasDocumentStore } from "../document/canvasDocumentStore";
+import type { CanvasOperationQueueStore } from "../ops/canvasOperationQueueStore";
+import {
+  getNextDispatchableOperation,
+  getPendingStructuralOperations,
+} from "../ops/canvasOperationQueueStore";
 
 const CURSOR_MOVE_UPDATE_INTERVAL = 17;
 
+interface UseCanvasCollabArgs {
+  canvasId: string;
+  userId: string;
+  displayName: string;
+  viewportRef: React.RefObject<HTMLDivElement | null>;
+  transformRef: React.RefObject<Transform>;
+  cursorStore: CursorPresenceStore;
+  documentStore: CanvasDocumentStore;
+  operationQueueStore: CanvasOperationQueueStore;
+  handlers?: CanvasEventHandlers;
+}
+
 /**
- * Owns the shared canvas WebSocket session and routes inbound events by
- * concern: document changes stay in React state/callbacks, while high-frequency
- * remote cursor updates are written into an external presence store.
+ * Own the shared canvas WebSocket session and bridge transport events into the
+ * document store, operation queue, and lightweight presence state.
  */
-export function useCanvasCollab(
-  canvasId: string,
-  userId: string,
-  displayName: string,
-  viewportRef: React.RefObject<HTMLDivElement | null>,
-  transformRef: React.RefObject<Transform>,
-  cursorStore: CursorPresenceStore,
-  handlers: CanvasEventHandlers = {},
-) {
+export function useCanvasCollab({
+  canvasId,
+  userId,
+  displayName,
+  viewportRef,
+  transformRef,
+  cursorStore,
+  documentStore,
+  operationQueueStore,
+  handlers = {},
+}: UseCanvasCollabArgs) {
   const [users, setUsers] = useState<CollabUser[]>([]);
-  // Active in-progress strokes from remote users, keyed by userId.
-  // Points are world-space, accumulated as draw_points batches arrive.
-  // Cleared when draw_end arrives or the user leaves.
   const [remoteStrokes, setRemoteStrokes] = useState<Map<string, RemoteStroke>>(
     new Map(),
   );
   const wsRef = useRef<WebSocket | null>(null);
   const lastCursorSentAt = useRef(0);
-
-  // Keep newest callbacks without reconnecting the socket every render.
+  const bufferedStructuralEventsRef = useRef<CanvasCommittedStructuralEvent[]>(
+    [],
+  );
   const handlersRef = useRef(handlers);
 
   useEffect(() => {
     handlersRef.current = handlers;
   }, [handlers]);
 
+  const send = useCallback(
+    (event: CanvasOutboundEvent) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ ...event, canvasId, userId }));
+    },
+    [canvasId, userId],
+  );
+
+  const reconcileCommittedStructuralEvent = useCallback(
+    (event: CanvasCommittedStructuralEvent) => {
+      const isLocalAck = event.userId === userId;
+
+      if (!isLocalAck && event.type === "node_move") {
+        handlersRef.current.onNodeMove?.(
+          event.userId,
+          event.nodeId,
+          event.x,
+          event.y,
+        );
+      }
+
+      if (isLocalAck) {
+        operationQueueStore.getState().acknowledge(event.clientOperationId);
+      }
+
+      operationQueueStore.getState().pruneForCommittedEvent(event);
+      documentStore.getState().rebaseOnCommittedOperation(
+        event,
+        getPendingStructuralOperations(operationQueueStore),
+      );
+    },
+    [documentStore, operationQueueStore, userId],
+  );
+
+  const tryDispatchNextQueuedOperation = useCallback(() => {
+    const next = getNextDispatchableOperation(operationQueueStore);
+    if (!next) {
+      return;
+    }
+
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    try {
+      ws.send(JSON.stringify({ ...next.event, canvasId, userId }));
+      operationQueueStore.getState().markInFlight(next.clientOperationId);
+    } catch (error) {
+      console.error("Failed to dispatch queued structural operation", error);
+      operationQueueStore.getState().setDispatchReady(false);
+    }
+  }, [canvasId, operationQueueStore, userId]);
+
+  useEffect(() => {
+    tryDispatchNextQueuedOperation();
+    return operationQueueStore.subscribe(() => {
+      tryDispatchNextQueuedOperation();
+    });
+  }, [operationQueueStore, tryDispatchNextQueuedOperation]);
+
   useEffect(() => {
     const ws = new WebSocket(COLLAB_WS_URL);
 
     ws.onopen = () => {
-      // Reset local collab state when a fresh socket session is established.
       setUsers([]);
       cursorStore.clear();
       setRemoteStrokes(new Map());
-
-      // Assign only when open so stale constructing sockets cannot clobber ref.
+      bufferedStructuralEventsRef.current = [];
+      operationQueueStore.getState().setDispatchReady(false);
       wsRef.current = ws;
       ws.send(JSON.stringify({ type: "join", canvasId, userId, displayName }));
     };
@@ -66,9 +148,14 @@ export function useCanvasCollab(
         return;
       }
 
-      // The relay currently echoes to all peers except sender for most events,
-      // but this guard is still useful for safety and future server changes.
-      if ("userId" in msg && msg.userId === userId) return;
+      if (isCommittedStructuralInboundEvent(msg)) {
+        if (!operationQueueStore.getState().dispatchReady) {
+          bufferedStructuralEventsRef.current.push(msg);
+          return;
+        }
+        reconcileCommittedStructuralEvent(msg);
+        return;
+      }
 
       switch (msg.type) {
         case "presence_snapshot":
@@ -89,6 +176,25 @@ export function useCanvasCollab(
               }),
           );
           break;
+
+        case "canvas_bootstrap": {
+          documentStore.getState().replaceFromBootstrap(
+            msg.nodes,
+            msg.edges,
+            msg.headVersion,
+            getPendingStructuralOperations(operationQueueStore),
+          );
+
+          const buffered = [...bufferedStructuralEventsRef.current].sort(
+            (a, b) => a.version - b.version,
+          );
+          bufferedStructuralEventsRef.current = [];
+          for (const bufferedEvent of buffered) {
+            reconcileCommittedStructuralEvent(bufferedEvent);
+          }
+          operationQueueStore.getState().setDispatchReady(true);
+          break;
+        }
 
         case "user_join":
           handlersRef.current.onUserJoin?.({
@@ -118,6 +224,7 @@ export function useCanvasCollab(
           break;
 
         case "cursor_move":
+          if (msg.userId === userId) break;
           cursorStore.upsertCursor({
             userId: msg.userId,
             x: msg.x,
@@ -125,48 +232,23 @@ export function useCanvasCollab(
           });
           break;
 
-        case "node_create":
-          handlersRef.current.onNodeCreate?.(msg.node);
-          break;
-
-        case "node_move":
-          handlersRef.current.onNodeMove?.(
-            msg.userId,
-            msg.nodeId,
-            msg.x,
-            msg.y,
-          );
-          break;
-
         case "node_drag_start":
+          if (msg.userId === userId) break;
           handlersRef.current.onNodeDragStart?.(msg.userId, msg.nodeIds);
           break;
 
         case "node_drag_end":
+          if (msg.userId === userId) break;
           handlersRef.current.onNodeDragEnd?.(msg.userId);
           break;
 
-        case "node_update":
-          handlersRef.current.onNodeUpdate?.(msg.nodeId, msg.patch);
-          break;
-
-        case "node_delete":
-          handlersRef.current.onNodeDelete?.(msg.nodeId);
-          break;
-
-        case "edge_create":
-          handlersRef.current.onEdgeCreate?.(msg.edge);
-          break;
-
-        case "edge_delete":
-          handlersRef.current.onEdgeDelete?.(msg.edgeId);
-          break;
-
         case "node_select":
+          if (msg.userId === userId) break;
           handlersRef.current.onNodeSelect?.(msg.userId, msg.nodeIds);
           break;
 
         case "draw_points":
+          if (msg.userId === userId) break;
           setRemoteStrokes((prev) => {
             const next = new Map(prev);
             const existing = next.get(msg.userId);
@@ -179,6 +261,7 @@ export function useCanvasCollab(
           break;
 
         case "draw_end":
+          if (msg.userId === userId) break;
           setRemoteStrokes((prev) => {
             const next = new Map(prev);
             next.delete(msg.userId);
@@ -198,6 +281,7 @@ export function useCanvasCollab(
           break;
 
         case "crdt_op":
+          if (msg.userId === userId) break;
           handlersRef.current.onCrdtOp?.(msg.docId, msg.op, msg.userId);
           break;
 
@@ -208,12 +292,14 @@ export function useCanvasCollab(
     };
 
     ws.onclose = () => {
-      // StrictMode-safe: only clear if this exact socket is still current.
       if (wsRef.current === ws) wsRef.current = null;
 
       setUsers([]);
       cursorStore.clear();
       setRemoteStrokes(new Map());
+      bufferedStructuralEventsRef.current = [];
+      operationQueueStore.getState().setDispatchReady(false);
+      operationQueueStore.getState().requeueInFlightOperations();
     };
 
     ws.onerror = (err) => {
@@ -221,23 +307,22 @@ export function useCanvasCollab(
     };
 
     return () => {
+      bufferedStructuralEventsRef.current = [];
+      operationQueueStore.getState().setDispatchReady(false);
+      operationQueueStore.getState().requeueInFlightOperations();
       cursorStore.clear();
       ws.close();
     };
-  }, [canvasId, userId, displayName, cursorStore]);
+  }, [
+    canvasId,
+    cursorStore,
+    displayName,
+    documentStore,
+    operationQueueStore,
+    reconcileCommittedStructuralEvent,
+    userId,
+  ]);
 
-  const send = useCallback(
-    (event: CanvasOutboundEvent) => {
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-      // canvasId + userId are envelope metadata used by relay/router logic.
-      ws.send(JSON.stringify({ ...event, canvasId, userId }));
-    },
-    [canvasId, userId],
-  );
-
-  // Throttled cursor move updates (50fps) to cap network spam.
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       const now = performance.now();
