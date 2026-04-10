@@ -20,9 +20,9 @@ import org.springframework.web.server.ResponseStatusException;
 /**
  * gRPC server adapter for durable canvas state.
  *
- * <p>The HTTP controller can remain available as a debug surface, but internal
- * service-to-service traffic should use this gRPC contract so collab and canvas
- * share one compile-time-checked interface.
+ * <p>This is the only service-to-service transport for durable canvas state.
+ * Keeping the boundary on gRPC avoids a second parallel contract drifting away
+ * from the real persistence and sequencing path.
  */
 @GrpcService
 public class CanvasGrpcService extends CanvasServiceGrpc.CanvasServiceImplBase {

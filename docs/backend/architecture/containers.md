@@ -7,7 +7,7 @@ flowchart TB
     FE[Frontend\nReact/Vite]
 
     subgraph APP[Spring Boot Services]
-      CAN[canvas-service\n:8084 (HTTP), :9091 (gRPC)]
+      CAN[canvas-service\n:9091 (gRPC)]
       COL[collab\n:8080]
       LEE[leetcode-service\n:8081 (HTTP), :9090 (gRPC)]
       SUB[submissions\n:8082]
@@ -40,7 +40,7 @@ flowchart TB
 
 ## Container Responsibilities
 
-- **canvas-service**: Durable structural canvas owner. Stores materialized node/edge state plus ordered committed structural ops. Exposes gRPC for internal hot-path calls and a small HTTP debug surface.
+- **canvas-service**: Durable structural canvas owner. Stores materialized node/edge state plus ordered committed structural ops. Exposes gRPC for internal hot-path calls.
 - **collab**: Room/session registry, fan-out relay, in-memory CRDT op-log for replay, and gRPC client to canvas-service for persist-first structural websocket flows.
 - **leetcode-service**: Paginated/filterable problem APIs plus internal gRPC eval-data endpoint.
 - **submissions**: Accepts code submissions, persists row, persists outbox event in same transaction, and polls/publishes unpublished rows to RabbitMQ.

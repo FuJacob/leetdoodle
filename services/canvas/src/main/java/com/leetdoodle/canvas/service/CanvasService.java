@@ -33,9 +33,8 @@ import java.util.OptionalLong;
  * Application service for durable structural canvas operations.
  *
  * <p>This service owns the "persisted truth" for nodes, edges, and structural
- * sequencing. A future collab integration can call into this service for
- * durable operations while continuing to relay ephemeral events like cursors in
- * memory.
+ * sequencing. Collab already calls into this service for durable operations
+ * while continuing to relay ephemeral events like cursors in memory.
  */
 @Service
 public class CanvasService {
