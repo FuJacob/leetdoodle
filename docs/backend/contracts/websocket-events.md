@@ -9,6 +9,7 @@ Transport model:
 - Client sends JSON messages with a `type` discriminator.
 - Ephemeral events are relayed directly in-memory.
 - Durable structural events are committed through `canvas-service` first, then broadcast with committed metadata.
+- The sender also receives the committed structural event back as the client-side ack path for optimistic queue reconciliation.
 - `crdt_op` and `sync_request` are special-cased for replay/sync.
 
 ## Join Flow

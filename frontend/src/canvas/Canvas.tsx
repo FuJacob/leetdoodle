@@ -18,6 +18,8 @@ import { useCanvasShortcutContainer } from "./shortcuts/useCanvasShortcutContain
 import type { NodeDragVisual } from "./dragVisuals";
 import { useCanvasDocument } from "./model/useCanvasDocument";
 import { createCursorPresenceStore } from "./presence/cursorPresenceStore";
+import { createCanvasDocumentStore } from "./document/canvasDocumentStore";
+import { createCanvasOperationQueueStore } from "./ops/canvasOperationQueueStore";
 
 interface CanvasProps {
   canvasId: string;
@@ -41,6 +43,10 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const sendRef = useRef<((event: CanvasOutboundEvent) => void) | null>(null);
   const cursorStore = useMemo(() => createCursorPresenceStore(), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const documentStore = useMemo(() => createCanvasDocumentStore(), [canvasId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const operationQueueStore = useMemo(() => createCanvasOperationQueueStore(), [canvasId]);
   const [remoteSelections, setRemoteSelections] = useState<
     Map<string, Set<string>>
   >(new Map());
@@ -76,6 +82,8 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
     viewportRef,
     transformRef,
     sendRef,
+    documentStore,
+    operationQueueStore,
   });
 
   const [tool, setTool] = useState<CanvasTool>("select");
@@ -85,15 +93,8 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
 
   const collabHandlers = useMemo(
     () => ({
-      onNodeCreate: remote.applyNodeCreate,
-      onNodeMove: (
-        remoteUserId: string,
-        nodeId: string,
-        x: number,
-        y: number,
-      ) => {
+      onNodeMove: (remoteUserId: string, nodeId: string, x: number, y: number) => {
         const previousNode = getNodeById(nodeId);
-        remote.applyNodeMove(remoteUserId, nodeId, x, y);
         if (!previousNode) return;
 
         setRemoteDragStates((prev) => {
@@ -130,10 +131,6 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
           return next;
         });
       },
-      onNodeUpdate: remote.applyNodeUpdate,
-      onNodeDelete: remote.applyNodeDelete,
-      onEdgeCreate: remote.applyEdgeCreate,
-      onEdgeDelete: remote.applyEdgeDelete,
       onNodeSelect: (remoteUserId: string, nodeIds: string[]) => {
         setRemoteSelections((prev) => {
           const next = new Map(prev);
@@ -168,15 +165,17 @@ export function Canvas({ canvasId, userId, displayName }: CanvasProps) {
     remoteStrokes,
     send,
     onPointerMove: collabPointerMove,
-  } = useCanvasCollab(
+  } = useCanvasCollab({
     canvasId,
     userId,
     displayName,
     viewportRef,
     transformRef,
     cursorStore,
-    collabHandlers,
-  );
+    documentStore,
+    operationQueueStore,
+    handlers: collabHandlers,
+  });
 
   useEffect(() => {
     sendRef.current = send;

@@ -360,6 +360,7 @@ public class CanvasWebSocketHandler extends TextWebSocketHandler {
         String committedPayload = objectMapper.writeValueAsString(
             structuralBroadcastMessage(canvasId, committed)
         );
+        sendToSession(session, new TextMessage(committedPayload));
         broadcastStructuralToCanvas(canvasId, session.getId(), committed.version(), committedPayload);
     }
 
